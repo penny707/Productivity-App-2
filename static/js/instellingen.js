@@ -24,8 +24,10 @@ export function elioBlok({ aanbod = false } = {}) {
     } else {
       blok.replaceChildren(
         el("span", { class: "klein" }, aanbod
-          ? "Elio gevonden naast Milio. Haal je vakken, onderdelen en taken in één klik op; Elio zelf blijft onaangeroerd."
+          ? "Elio gevonden. Haal je vakken, onderdelen en taken in één klik op; Elio zelf blijft onaangeroerd."
           : "Elio gevonden. Je vakken, onderdelen en taken worden gekopieerd; Elio zelf blijft onaangeroerd."),
+        el("span", { class: "klein flauw elio-pad" }, el("code", {}, st.pad),
+          st.laatst_gebruikt ? ` · laatst gebruikt ${st.laatst_gebruikt.replace("T", " om ")}` : ""),
         el("button", {
           type: "button", class: "knop klein" + (aanbod ? " primair" : ""),
           onclick: async () => {

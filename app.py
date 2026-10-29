@@ -26,8 +26,21 @@ DB_PATH = os.environ.get("MILIO_DB") or os.path.join(BASE_DIR, "data.db")
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 HOST = "127.0.0.1"
 PORT = int(os.environ.get("MILIO_PORT") or 8766)
-# Elio staat standaard naast deze map; we lezen die database enkel (read-only).
-ELIO_DB = os.path.join(os.path.dirname(BASE_DIR), "Productivity App", "data.db")
+# Elio kan op meerdere plaatsen staan; we nemen de database die het laatst gebruikt werd.
+# Die wordt enkel gelezen (read-only). MILIO_ELIO=pad\naar\data.db wijst er zelf een aan.
+ELIO_KANDIDATEN = [
+    os.environ.get("MILIO_ELIO") or "",
+    os.path.join(os.path.dirname(BASE_DIR), "Productivity App", "data.db"),
+    os.path.join(os.path.expanduser("~"), "Documents", "GitHub", "Productivity App", "data.db"),
+    os.path.join(os.path.expanduser("~"), "Documents", "Productivity App", "data.db"),
+]
+
+
+def elio_pad():
+    if os.environ.get("MILIO_ELIO"):
+        return os.environ["MILIO_ELIO"]
+    gevonden = [p for p in ELIO_KANDIDATEN if p and os.path.isfile(p)]
+    return max(gevonden, key=os.path.getmtime) if gevonden else ELIO_KANDIDATEN[1]
 
 STANDAARD_INSTELLINGEN = {
     "thema": "dark",
@@ -329,9 +342,12 @@ def lees_instellingen(cur):
 # ----------------------------------------------------------------------------
 def elio_status(cur):
     inst = lees_instellingen(cur)
+    pad = elio_pad()
+    gevonden = os.path.isfile(pad)
     return {
-        "gevonden": os.path.isfile(ELIO_DB),
-        "pad": ELIO_DB,
+        "gevonden": gevonden,
+        "pad": pad,
+        "laatst_gebruikt": datetime.fromtimestamp(os.path.getmtime(pad)).strftime("%Y-%m-%dT%H:%M") if gevonden else None,
         "geimporteerd_op": inst.get("elio_import"),
     }
 
@@ -342,9 +358,9 @@ def importeer_elio(conn):
     if status["geimporteerd_op"]:
         raise Fout("Elio is al eens geïmporteerd.")
     if not status["gevonden"]:
-        raise Fout(f"Geen Elio-database gevonden op {ELIO_DB}.")
+        raise Fout(f"Geen Elio-database gevonden op {status['pad']}.")
 
-    uri = "file:" + ELIO_DB.replace("\\", "/") + "?mode=ro"
+    uri = "file:" + status["pad"].replace("\\", "/") + "?mode=ro"
     bron = sqlite3.connect(uri, uri=True)
     bron.row_factory = sqlite3.Row
     try:

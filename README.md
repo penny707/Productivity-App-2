@@ -6,8 +6,9 @@ Lokaal, snel en zonder installatie: Python (enkel de standaardbibliotheek), SQLi
 
 ## Starten
 
-Dubbelklik op **`start_app.bat`**. Er opent een zwart venster (de server) en je browser opent `http://127.0.0.1:8766`.
-Stoppen: sluit het zwarte venster of druk `Ctrl+C`.
+Dubbelklik op de snelkoppeling **Milio** op je bureaublad (of op `start_app.bat` in deze map). Je browser opent `http://127.0.0.1:8766`.
+De snelkoppeling start het zwarte servervenster geminimaliseerd: je ziet het als "Milio" in je taakbalk.
+Stoppen: sluit dat venster (of druk er `Ctrl+C` in). Dubbelklik je terwijl Milio al draait, dan opent gewoon je browser.
 
 Vereisten: Windows 10/11, Python 3.8 of nieuwer ("Add Python to PATH" aangevinkt), een moderne browser.
 
@@ -44,7 +45,14 @@ Kies een taak, start een timer (15 tot 90 minuten, of vrij), en werk boven een r
 ## Van Elio naar Milio
 
 Is Milio nog leeg, dan biedt het Kompas meteen aan om je vakken, onderdelen en taken uit Elio over te nemen. Later kan dat ook via Instellingen (het tandwiel linksonder).
-Milio zoekt Elio in de map naast deze (`..\Productivity App\data.db`) en opent die database **alleen-lezen**: Elio zelf verandert niet. Importeren kan één keer.
+Milio zoekt Elio op deze plaatsen en neemt de database die het **laatst gebruikt** werd:
+
+- `..\Productivity App\data.db` (naast deze map)
+- `Documenten\GitHub\Productivity App\data.db`
+- `Documenten\Productivity App\data.db`
+
+Staat Elio ergens anders, start dan met `set MILIO_ELIO=pad\naar\data.db`. Instellingen toont welk bestand gevonden werd.
+Die database wordt **alleen-lezen** geopend: Elio zelf verandert niet. Importeren kan één keer.
 
 ## Je gegevens
 
