@@ -104,8 +104,10 @@ export async function verwijder(tabel, id) {
     herindexeer();
     meld();
   } else {
-    await laad(); // vakken/onderdelen: de database ruimt kinderen op, dus alles opnieuw lezen
+    // vakken/onderdelen: de database ruimt kinderen op en ontkoppelt events, dus alles opnieuw lezen
     S.events.clear();
+    geladenBereiken.clear();
+    await laad();
   }
 }
 

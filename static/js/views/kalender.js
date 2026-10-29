@@ -117,10 +117,10 @@ export const bezig = () => !!sleep;
 
 /** Elke halve minuut: enkel de nu-lijn verschuiven. */
 export function tik(c) {
-  const lijn = c.querySelector(".nu-lijn");
-  if (!lijn) return;
   const [ds, de] = urenBereik();
-  lijn.style.top = ((nuMinuten() - ds * 60) / ((de - ds) * 60)) * 100 + "%";
+  const lijn = c.querySelector(".nu-lijn"), label = c.querySelector(".nu-label");
+  if (lijn) lijn.style.top = nuPct(ds, de);
+  if (label) { label.style.top = nuPct(ds, de); label.textContent = fmtTijd(nuMinuten()); }
 }
 
 // =========================================================

@@ -506,9 +506,31 @@ class AppHandler(BaseHTTPRequestHandler):
         finally:
             conn.close()
 
+    def vertrouwd(self, methode):
+        """
+        Enkel Milio zelf mag de API gebruiken, geen andere websites in je browser:
+        - Host moet 127.0.0.1/localhost zijn (blokkeert DNS-rebinding),
+        - een Origin-header moet van Milio zelf komen (blokkeert CSRF),
+        - schrijven vraagt JSON; dat kan een andere site niet sturen zonder
+          CORS-toestemming, en die geeft deze server nooit.
+        """
+        eigen = {f"127.0.0.1:{PORT}", f"localhost:{PORT}"}
+        if self.headers.get("Host", "") not in eigen:
+            return False
+        origin = self.headers.get("Origin")
+        if origin and urlparse(origin).netloc not in eigen:
+            return False
+        if methode in ("POST", "PUT"):
+            return (self.headers.get("Content-Type") or "").startswith("application/json")
+        return True
+
     def dispatch(self, methode):
         url = urlparse(self.path)
         delen = [d for d in url.path.split("/") if d]
+
+        if not self.vertrouwd(methode):
+            self.stuur({"fout": "Geweigerd: dit verzoek kwam niet van Milio zelf."}, 403)
+            return
 
         if delen and delen[0] == "api":
             try:
