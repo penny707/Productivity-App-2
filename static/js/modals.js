@@ -34,7 +34,7 @@ export function modal(inhoud, { breed = false, opSluit = null } = {}) {
 }
 
 /** Formulier-modal met titel, velden en Opslaan/Annuleren. */
-export function formModal({ titel, velden, opslaan, knop = "Opslaan", links = null, breed = false }) {
+export function formModal({ titel, velden, opslaan, knop = "Opslaan", links = null, breed = false, opSluit = null }) {
   return modal((sluit) => {
     const form = el("form", {
       onsubmit: async (e) => {
@@ -55,7 +55,7 @@ export function formModal({ titel, velden, opslaan, knop = "Opslaan", links = nu
       el("button", { type: "submit", class: "knop primair" }, knop),
     ));
     return form;
-  }, { breed });
+  }, { breed, opSluit });
 }
 
 /** Vraagt bevestiging; geeft een Promise<boolean>. */

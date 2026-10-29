@@ -120,7 +120,7 @@ h2 { font-family: var(--font-kop); font-size: 15px; font-weight: 650; }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
 svg { flex-shrink: 0; }
-.verborgen { display: none !important; }
+.verborgen, [hidden] { display: none !important; }
 .klein { font-size: 12.5px; color: var(--tekst-zacht); }
 .flauw { color: var(--tekst-flauw); }
 

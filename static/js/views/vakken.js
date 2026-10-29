@@ -6,6 +6,7 @@ import { el, svg, icoon, fmtDag, relatief, datumStatus, toast } from "../util.js
 import { S, vak, voortgang, boom, takenVanVak, bewaar, verwijder, zetKlaar, zetInst } from "../store.js";
 import { vakModal, onderdeelModal, taakModal, verwijderTaak, bevestig, TYPES, typeKeuze } from "../modals.js";
 import { vakBerg } from "../bergen.js";
+import { planTaak } from "./kalender.js";
 
 // Onderdelen die je dichtklapte (standaard staat alles open).
 const dicht = new Set(JSON.parse(localStorage.getItem("milio-dicht") || "[]"));
@@ -258,6 +259,7 @@ function taakRij(t) {
     el("span", { class: "type " + t.type }, TYPES[t.type]),
     datumChips(t),
     el("div", { class: "taak-acties" },
+      t.klaar ? null : el("button", { class: "icoon-knop klein", title: "Inplannen in kalender", onclick: () => planTaak(t) }, icoon("kalenderPlus", 14)),
       el("button", { class: "icoon-knop klein", title: "Bewerken", onclick: () => taakModal(t) }, icoon("potlood", 14)),
       el("button", { class: "icoon-knop klein gevaar", title: "Verwijderen", onclick: () => verwijderTaak(t) }, icoon("prullenbak", 14)),
     ),

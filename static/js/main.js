@@ -6,20 +6,24 @@ import { $, el, svg, icoon } from "./util.js";
 import { S, laad, opWijziging, voortgang, zetInst } from "./store.js";
 import { vakModal } from "./modals.js";
 import { renderOverzicht, renderVak } from "./views/vakken.js";
+import * as kalender from "./views/kalender.js";
 
 // ---------- Views ----------
 // vol = de view vult het hele scherm zonder te scrollen (kalender, focus)
 const VIEWS = {
+  kalender: { ...kalender, nav: "kalender", vol: true },
   vakken: { render: renderOverzicht, nav: "vakken" },
   vak: { render: renderVak, nav: "vakken" },
 };
 const NAV = [
+  { route: "kalender", label: "Kalender", icoon: "kalender" },
   { route: "vakken", label: "Vakken", icoon: "vakken" },
 ];
 const STANDAARD = "vakken";
 
 let vorigeRoute = "";
 let huidigeView = null;
+let uitgesteld = false; // er kwam een wijziging binnen tijdens het slepen
 
 function leesRoute() {
   const [naam = STANDAARD, arg] = location.hash.replace(/^#\/?/, "").split("/");
@@ -27,6 +31,8 @@ function leesRoute() {
 }
 
 function render() {
+  if (huidigeView?.bezig?.()) { uitgesteld = true; return; }
+  uitgesteld = false;
   const route = leesRoute();
   const def = VIEWS[route.naam];
   const hoofd = $("#hoofd");
@@ -37,10 +43,27 @@ function render() {
   huidigeView = def;
   def.render(sectie, route.arg === undefined ? undefined : Number(route.arg) || route.arg);
   hoofd.replaceChildren(sectie);
+  def.naRender?.(sectie);
   hoofd.scrollTop = nieuw ? 0 : scroll;
   vorigeRoute = route.sleutel;
   renderZijbalk(def.nav, route);
 }
+
+// Klok: views met een tik() krijgen elke halve minuut een seintje (nu-lijn, dagboog).
+let laatsteDag = null;
+setInterval(() => {
+  const dag = new Date().toDateString();
+  if (laatsteDag && dag !== laatsteDag) render(); // middernacht: alles opnieuw
+  laatsteDag = dag;
+  if (uitgesteld) render();
+  else huidigeView?.tik?.($("#hoofd > .view"));
+}, 30000);
+
+let resizeTimer = null;
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => { if (huidigeView?.naRender) render(); }, 120);
+});
 
 // ---------- Zijbalk ----------
 const THEMAS = { dark: "Donker", grey: "Grijs", light: "Licht" };
