@@ -1,0 +1,155 @@
+/* =========================================================
+   Milio — vandaag.css  (Kompas)
+   ========================================================= */
+
+/* ---------- Hero met dagboog ---------- */
+.kompas-hero {
+  position: relative; overflow: hidden; border-radius: var(--radius-xl); margin-bottom: 26px;
+  width: 100%; height: clamp(230px, 27vw, 320px);
+  background: linear-gradient(180deg, var(--lucht-1), var(--lucht-2) 70%);
+  border: 1px solid var(--rand-zacht);
+  isolation: isolate;
+}
+.dagboog { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; }
+.boog-basis { stroke: var(--tekst-flauw); stroke-opacity: .45; stroke-width: 2; stroke-dasharray: 2 7; stroke-linecap: round; }
+.boog-voorbij { stroke: var(--tekst-zacht); stroke-opacity: .5; stroke-width: 2.5; stroke-linecap: round; }
+.boog-uur { font: 600 13px var(--font); fill: var(--tekst-flauw); }
+
+.kompas-hero-tekst { position: absolute; left: 30px; top: 24px; right: 30px; }
+.kompas-hero-tekst h1 { font-size: 28px; letter-spacing: -.02em; }
+.kompas-datum { color: var(--tekst-zacht); font-weight: 550; margin-top: 2px; }
+.kompas-datum::first-letter { text-transform: uppercase; }
+.kompas-samenvatting { color: var(--tekst-zacht); font-size: 13px; margin-top: 8px; }
+
+.kompas-nu {
+  position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 8px; padding: 7px 14px 7px 8px; border-radius: 999px;
+  background: color-mix(in srgb, var(--paneel) 78%, transparent); backdrop-filter: blur(8px);
+  border: 1px solid var(--rand-zacht); box-shadow: var(--schaduw-1); white-space: nowrap; font-size: 13px;
+  max-width: calc(100% - 40px); overflow: hidden; text-overflow: ellipsis;
+}
+.nu-pil {
+  font-size: 10.5px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px;
+  background: var(--vandaag); color: #fff;
+}
+.nu-pil.straks { background: var(--accent); color: var(--op-accent); }
+.nu-pil.vrij { background: var(--ok); color: #fff; }
+
+/* ---------- Blokken ---------- */
+.kompas-blok { margin-bottom: 26px; }
+.kompas-kop { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; min-height: 28px; }
+.kompas-kop h2 { font-size: 16px; }
+.kompas-kop .knop { margin-left: auto; }
+.kompas-stippen { display: flex; gap: 5px; }
+.kompas-stippen span { width: 9px; height: 9px; border-radius: 50%; background: var(--paneel-3); transition: background var(--zacht), transform var(--zacht); }
+.kompas-stippen span.aan { background: var(--ok); transform: scale(1.1); }
+.kompas-kolommen { display: grid; grid-template-columns: 1.15fr 1fr; gap: 26px; }
+.kompas-stil { color: var(--tekst-zacht); padding: 14px 16px; background: var(--paneel); border: 1px dashed var(--rand); border-radius: var(--radius-m); }
+.kompas-stil a { color: var(--accent); }
+
+/* ---------- Eerst dit ---------- */
+.keuzes { display: flex; flex-direction: column; gap: 10px; }
+.keuze {
+  display: flex; align-items: center; gap: 14px; padding: 14px 14px 14px 18px; position: relative;
+  background: var(--paneel); border: 1px solid var(--rand-zacht); border-radius: var(--radius-l);
+  box-shadow: var(--schaduw-1); overflow: visible;
+  animation: verschijn 380ms both cubic-bezier(.2,.7,.3,1); animation-delay: calc(var(--i) * 60ms);
+  transition: opacity var(--zacht), background var(--zacht);
+}
+.keuze::before { content: ""; position: absolute; left: 0; top: 12px; bottom: 12px; width: 4px; border-radius: 0 4px 4px 0; background: var(--k); }
+.keuze .vink { width: 24px; height: 24px; }
+.keuze .vink svg { width: 14px; height: 14px; }
+.keuze-tekst { flex: 1; min-width: 0; }
+.keuze-titel {
+  display: block; max-width: 100%; border: none; background: none; padding: 0; text-align: left;
+  font-size: 15.5px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.keuze-meta { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--tekst-zacht); margin-top: 2px; white-space: nowrap; overflow: hidden; }
+.keuze-meta .stip { width: 8px; height: 8px; }
+.keuze.klaar { background: color-mix(in srgb, var(--paneel) 60%, transparent); box-shadow: none; }
+.keuze.klaar .keuze-titel { color: var(--tekst-flauw); text-decoration: line-through; }
+
+.keuze-reden {
+  display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; font-size: 12px; font-weight: 650;
+  padding: 4px 10px; border-radius: 999px; background: var(--paneel-2); color: var(--tekst-zacht); white-space: nowrap;
+}
+.keuze-reden.dringend { background: color-mix(in srgb, var(--gevaar) 16%, transparent); color: var(--gevaar); }
+.keuze-reden.deadline { background: color-mix(in srgb, var(--gevaar) 9%, transparent); color: var(--tekst); }
+.keuze-reden.streef { background: color-mix(in srgb, var(--warm) 16%, transparent); color: var(--warm); }
+.keuze-reden.gepland { background: var(--accent-zacht); color: var(--accent); }
+.keuze-reden.ok { background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); }
+html:not([data-thema="dark"]) .keuze-reden.streef { color: #a1700f; }
+html:not([data-thema="dark"]) .keuze-reden.ok { color: #2d8a5b; }
+
+.keuze-acties { display: flex; align-items: center; gap: 2px; }
+.later { position: relative; }
+.later-menu {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; min-width: 190px; padding: 5px;
+  background: var(--paneel); border: 1px solid var(--rand); border-radius: var(--radius-m); box-shadow: var(--schaduw-2);
+  display: flex; flex-direction: column; animation: plop 160ms ease-out;
+}
+.later-menu button {
+  display: flex; justify-content: space-between; gap: 14px; padding: 8px 10px; border: none; background: none;
+  border-radius: 6px; text-align: left; font-weight: 550;
+}
+.later-menu button:hover { background: var(--paneel-2); }
+
+.kompas-af {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 18px; margin-top: 4px;
+  border-radius: var(--radius-l); background: color-mix(in srgb, var(--ok) 11%, var(--paneel));
+  border: 1px solid color-mix(in srgb, var(--ok) 30%, transparent); animation: verschijn 400ms both;
+}
+.kompas-af span { color: var(--tekst-zacht); }
+.kompas-leeg {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; padding: 28px 20px;
+  border: 1px dashed var(--rand); border-radius: var(--radius-l); color: var(--tekst-zacht);
+}
+.kompas-leeg svg { color: var(--tekst-flauw); }
+.kompas-leeg strong { color: var(--tekst); }
+.kompas-leeg .knop { margin-top: 8px; }
+
+/* ---------- Lijsten (niet vergeten, agenda) ---------- */
+.lijst {
+  display: flex; flex-direction: column; padding: 6px; gap: 1px;
+  background: var(--paneel); border: 1px solid var(--rand-zacht); border-radius: var(--radius-l);
+}
+.lijst-rij { display: flex; align-items: center; gap: 10px; padding: 6px 6px 6px 8px; border-radius: var(--radius-s); }
+.lijst-rij:hover { background: var(--paneel-2); }
+.lijst-rij .icoon-knop { opacity: 0; }
+.lijst-rij:hover .icoon-knop, .lijst-rij:focus-within .icoon-knop { opacity: 1; }
+.lijst-titel {
+  flex: 1; min-width: 0; border: none; background: none; padding: 0; text-align: left; font-weight: 550;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.lijst-titel, .lijst-sub { white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+.lijst-sub { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--tekst-flauw); font-weight: 500; }
+.lijst-sub .stip { width: 7px; height: 7px; }
+.lijst-dag { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 650; color: var(--tekst-zacht); white-space: nowrap; }
+.lijst-dag.deadline svg { color: var(--gevaar); }
+.lijst-dag.streef svg { color: var(--warm); }
+.lijst-dag.bijna { color: var(--tekst); }
+.lijst-dag.te-laat { color: var(--gevaar); }
+.lijst-meer { padding: 6px 10px 4px; color: var(--tekst-zacht); }
+
+.agenda-rij {
+  display: grid; grid-template-columns: 96px 4px 1fr auto; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: var(--radius-s); color: inherit; text-decoration: none;
+}
+.agenda-rij:hover { background: var(--paneel-2); }
+.agenda-tijd { font-size: 12.5px; color: var(--tekst-zacht); font-weight: 550; white-space: nowrap; }
+.agenda-balk { height: 22px; border-radius: 4px; background: var(--k); }
+.agenda-titel { font-weight: 600; display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agenda-rij.voorbij { opacity: .5; }
+.agenda-rij.nu { background: color-mix(in srgb, var(--k) 12%, transparent); }
+
+.kompas-rust {
+  display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; margin-top: 4px;
+  color: var(--tekst-flauw); font-size: 13px; text-align: center;
+}
+.kompas-rust a { color: var(--accent); font-weight: 600; text-decoration: none; }
+.kompas-rust a:hover { text-decoration: underline; }
+
+@media (max-width: 900px) {
+  .kompas-kolommen { grid-template-columns: 1fr; }
+  .keuze { flex-wrap: wrap; }
+}

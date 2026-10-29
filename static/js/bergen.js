@@ -90,14 +90,14 @@ export function vakBerg(id, kleur, pct) {
   </svg>`;
 }
 
-/** Breed landschap met drie lagen (voor Kompas en Focus). */
-export function landschap(seed = 3, { breedte = 1200, hoogte = 220, kleur = "var(--accent)" } = {}) {
+/**
+ * Drie bergruggen als <path>-markup, voor in een groter SVG (Kompas, Focus).
+ * lagen = hoeveel % accentkleur per laag (achter → voor); 0 = exact de paginakleur.
+ */
+export function bergruggen(seed, breedte, hoogte, { kleur = "var(--accent)", lagen = [24, 13, 0], top = 0.5 } = {}) {
   const rnd = zaad(seed);
-  const laag = (basis, amp, stappen, pct) =>
-    `<path d="${rug(rnd, breedte, hoogte, basis, amp, stappen)}" style="fill:${mix(kleur, pct, "var(--bg)")}"/>`;
-  return `<svg class="landschap" viewBox="0 0 ${breedte} ${hoogte}" preserveAspectRatio="none" aria-hidden="true">
-    ${laag(hoogte * 0.42, hoogte * 0.32, 11, 16)}
-    ${laag(hoogte * 0.62, hoogte * 0.26, 9, 26)}
-    ${laag(hoogte * 0.82, hoogte * 0.2, 13, 38)}
-  </svg>`;
+  const span = hoogte * (1 - top);
+  const vormen = [[0.25, 0.42, 11], [0.55, 0.32, 9], [0.8, 0.24, 13]];
+  return vormen.map(([basis, amp, stappen], i) =>
+    `<path d="${rug(rnd, breedte, hoogte, hoogte * top + span * basis, span * amp, stappen)}" style="fill:${mix(kleur, lagen[i], "var(--bg)")}"/>`).join("");
 }

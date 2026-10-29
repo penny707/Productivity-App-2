@@ -2,24 +2,35 @@
    Milio — main.js
    Opstart, routing, zijbalk, thema en sneltoetsen.
    ========================================================= */
-import { $, el, svg, icoon } from "./util.js";
+import { $, el, svg, icoon, vandaag } from "./util.js";
 import { S, laad, opWijziging, voortgang, zetInst } from "./store.js";
 import { vakModal } from "./modals.js";
 import { renderOverzicht, renderVak } from "./views/vakken.js";
 import * as kalender from "./views/kalender.js";
+import * as kompas from "./views/vandaag.js";
 
 // ---------- Views ----------
 // vol = de view vult het hele scherm zonder te scrollen (kalender, focus)
 const VIEWS = {
+  vandaag: { ...kompas, nav: "vandaag" },
   kalender: { ...kalender, nav: "kalender", vol: true },
   vakken: { render: renderOverzicht, nav: "vakken" },
   vak: { render: renderVak, nav: "vakken" },
 };
 const NAV = [
+  { route: "vandaag", label: "Kompas", icoon: "kompas", teller: () => tellerEl(kompasOpen()) },
   { route: "kalender", label: "Kalender", icoon: "kalender" },
   { route: "vakken", label: "Vakken", icoon: "vakken" },
 ];
-const STANDAARD = "vakken";
+const STANDAARD = "vandaag";
+
+function kompasOpen() {
+  try {
+    const k = JSON.parse(S.inst.kompas || "null");
+    return k?.dag === vandaag() ? k.ids.filter((id) => S.taken.some((t) => t.id === id && !t.klaar)).length : 0;
+  } catch { return 0; }
+}
+const tellerEl = (n, dringend = false) => (n ? el("span", { class: "nav-teller" + (dringend ? " dringend" : "") }, n) : null);
 
 let vorigeRoute = "";
 let huidigeView = null;

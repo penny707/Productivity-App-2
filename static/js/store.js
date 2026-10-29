@@ -129,6 +129,15 @@ export async function zetInst(obj, { stil = false } = {}) {
 }
 
 // ---------- Events ----------
+const geladenBereiken = new Set();
+/** Laadt een bereik één keer (views roepen dit bij elke render aan). */
+export function zorgVoorEvents(van, tot) {
+  const k = `${van}|${tot}`;
+  if (geladenBereiken.has(k)) return;
+  geladenBereiken.add(k);
+  laadEvents(van, tot).catch(() => geladenBereiken.delete(k));
+}
+
 /** Laadt alle events tussen van (incl.) en tot (excl.) in de cache. */
 export async function laadEvents(van, tot) {
   const lijst = await api(`/events?van=${van}&tot=${tot}`);

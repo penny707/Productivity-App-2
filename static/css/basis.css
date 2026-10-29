@@ -252,7 +252,7 @@ svg { flex-shrink: 0; }
   display: inline-flex; align-items: center; justify-content: center; gap: 7px;
   height: 34px; padding: 0 14px; border-radius: var(--radius-s);
   border: 1px solid var(--rand); background: var(--paneel); color: var(--tekst);
-  font-weight: 550; white-space: nowrap;
+  font-weight: 550; white-space: nowrap; text-decoration: none;
   transition: background var(--snel), border-color var(--snel), transform var(--snel), box-shadow var(--snel);
 }
 .knop:hover { background: var(--paneel-2); }

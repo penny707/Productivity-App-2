@@ -9,7 +9,7 @@ import {
   el, icoon, toast, vandaag, plusDagen, maandagVan, weekNummer, fmtDag, fmtTijd, fmtDuur,
   naarWand, vanWand, minVanDag, moment, nuMinuten, dagVerschil,
 } from "../util.js";
-import { S, meld, vak, vakVanTaak, bewaar, verwijder, laadEvents, eventsTussen, bereik, eventKleur, onderdeelPad, taak } from "../store.js";
+import { S, meld, vak, vakVanTaak, bewaar, verwijder, zorgVoorEvents, eventsTussen, bereik, eventKleur, onderdeelPad, taak } from "../store.js";
 import { formModal, veld, kleurKiezer, bevestig, taakModal } from "../modals.js";
 
 const SNAP = 15; // minuten
@@ -20,7 +20,6 @@ let concept = null; // nieuw event dat nog in de modal zit
 let sleep = null;   // lopende sleepactie
 let annuleerSleep = () => {};
 let dagrijOpen = false;
-const geladen = new Set();
 
 const hoofdletter = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const urenBereik = () => {
@@ -53,13 +52,6 @@ function zichtbareDagen() {
   }
   const van = maandagVan(anker.slice(0, 8) + "01");
   return Array.from({ length: 42 }, (_, i) => plusDagen(van, i));
-}
-
-function zorgVoorEvents(van, tot) {
-  const k = `${van}|${tot}`;
-  if (geladen.has(k)) return;
-  geladen.add(k);
-  laadEvents(van, tot).catch(() => geladen.delete(k));
 }
 
 function titelVan(dagen) {
