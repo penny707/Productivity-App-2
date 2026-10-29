@@ -8,6 +8,7 @@ import { vakModal } from "./modals.js";
 import { renderOverzicht, renderVak } from "./views/vakken.js";
 import * as kalender from "./views/kalender.js";
 import * as kompas from "./views/vandaag.js";
+import * as focus from "./views/focus.js";
 
 // ---------- Views ----------
 // vol = de view vult het hele scherm zonder te scrollen (kalender, focus)
@@ -16,11 +17,13 @@ const VIEWS = {
   kalender: { ...kalender, nav: "kalender", vol: true },
   vakken: { render: renderOverzicht, nav: "vakken" },
   vak: { render: renderVak, nav: "vakken" },
+  focus: { ...focus, nav: "focus", vol: true },
 };
 const NAV = [
   { route: "vandaag", label: "Kompas", icoon: "kompas", teller: () => tellerEl(kompasOpen()) },
   { route: "kalender", label: "Kalender", icoon: "kalender" },
   { route: "vakken", label: "Vakken", icoon: "vakken" },
+  { route: "focus", label: "Focus", icoon: "focus" },
 ];
 const STANDAARD = "vandaag";
 
@@ -70,6 +73,14 @@ setInterval(() => {
   else huidigeView?.tik?.($("#hoofd > .view"));
 }, 30000);
 
+// Elke seconde: de lopende focustimer in de zijbalk en de tabtitel.
+setInterval(() => {
+  const st = focus.focusStaat();
+  document.title = st ? `${focus.klokTekst(st)} · ${st.titel || "Focus"}` : "Milio";
+  const pil = $(".focus-pil-tijd");
+  if (pil && st) pil.textContent = focus.klokTekst(st);
+}, 1000);
+
 let resizeTimer = null;
 window.addEventListener("resize", () => {
   clearTimeout(resizeTimer);
@@ -94,7 +105,7 @@ function renderZijbalk(actief, route) {
   z.classList.toggle("ingeklapt", S.inst.sidebar_ingeklapt === "1");
   const thema = S.inst.thema || "dark";
 
-  z.replaceChildren(
+  z.replaceChildren(...[
     el("div", { class: "merk" },
       svg(LOGO),
       el("span", { class: "merk-naam" }, "Milio"),
@@ -106,6 +117,10 @@ function renderZijbalk(actief, route) {
     el("nav", { class: "nav" }, NAV.map((n) =>
       el("a", { class: "nav-item" + (n.route === actief ? " actief" : ""), href: `#/${n.route}`, title: n.label },
         icoon(n.icoon, 18, 1.8), el("span", { class: "label" }, n.label), n.teller?.() || null))),
+    focus.focusStaat() && actief !== "focus"
+      ? el("a", { class: "focus-pil", href: "#/focus", title: "Focussessie loopt" },
+        el("span", { class: "puls" }), el("span", { class: "label" }, "Focus"), el("span", { class: "focus-pil-tijd label" }))
+      : null,
 
     el("div", { class: "zijbalk-sectie" },
       el("span", {}, "Vakken"),
@@ -133,7 +148,7 @@ function renderZijbalk(actief, route) {
       }, icoon(thema === "light" ? "zon" : "maan", 17, 1.8)),
       el("span", { class: "thema-label" }, THEMAS[thema]),
     ),
-  );
+  ].filter(Boolean));
 }
 
 // ---------- Sneltoetsen ----------

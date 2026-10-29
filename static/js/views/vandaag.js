@@ -294,6 +294,7 @@ function keuzeLijst(gekozen, k) {
       t.klaar ? el("span", { class: "keuze-reden ok" }, icoon("check", 12, 2.6), "gedaan")
         : el("span", { class: "keuze-reden " + soort }, reden),
       t.klaar ? null : el("div", { class: "keuze-acties" },
+        el("a", { class: "icoon-knop", title: "Focus hierop", href: `#/focus/${t.id}` }, icoon("focus", 16)),
         el("button", { class: "icoon-knop", title: "Inplannen in kalender", onclick: () => planTaak(t) }, icoon("kalenderPlus", 16)),
         laterMenu(t),
       ),

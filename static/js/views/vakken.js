@@ -259,6 +259,7 @@ function taakRij(t) {
     el("span", { class: "type " + t.type }, TYPES[t.type]),
     datumChips(t),
     el("div", { class: "taak-acties" },
+      t.klaar ? null : el("a", { class: "icoon-knop klein", title: "Focus hierop", href: `#/focus/${t.id}` }, icoon("focus", 14)),
       t.klaar ? null : el("button", { class: "icoon-knop klein", title: "Inplannen in kalender", onclick: () => planTaak(t) }, icoon("kalenderPlus", 14)),
       el("button", { class: "icoon-knop klein", title: "Bewerken", onclick: () => taakModal(t) }, icoon("potlood", 14)),
       el("button", { class: "icoon-knop klein gevaar", title: "Verwijderen", onclick: () => verwijderTaak(t) }, icoon("prullenbak", 14)),

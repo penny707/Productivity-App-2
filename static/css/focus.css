@@ -1,0 +1,93 @@
+/* =========================================================
+   Milio — focus.css
+   Rustige scène: lucht, drijvende wolken, een vogel, bergen.
+   ========================================================= */
+.view.vol { position: relative; }
+
+.focus-scene {
+  position: absolute; inset: 0; overflow: hidden; z-index: 0;
+  background: linear-gradient(180deg, var(--lucht-1), var(--lucht-2) 78%);
+}
+.focus-bergen { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 46%; }
+
+.wolk {
+  position: absolute; left: -260px; width: 240px; height: 40px; border-radius: 40px;
+  background: rgba(255, 255, 255, .045); filter: blur(4px);
+  animation: drijf 170s linear infinite;
+}
+.wolk::before, .wolk::after {
+  content: ""; position: absolute; border-radius: 50%; background: inherit;
+}
+.wolk::before { width: 96px; height: 62px; left: 44px; top: -30px; }
+.wolk::after { width: 70px; height: 46px; left: 118px; top: -18px; }
+html:not([data-thema="dark"]) .wolk { background: rgba(255, 255, 255, .55); }
+.w1 { top: 11%; animation-delay: -40s; }
+.w2 { top: 25%; scale: .65; animation-duration: 230s; animation-delay: -150s; }
+.w3 { top: 6%; scale: .8; animation-duration: 200s; animation-delay: -95s; }
+@keyframes drijf { to { translate: calc(100vw + 520px) 0; } }
+
+.vogel {
+  position: absolute; top: 20%; left: -40px; width: 26px; color: var(--tekst-zacht); opacity: .8;
+  animation: vlieg 48s linear infinite, fladder .85s ease-in-out infinite;
+}
+@keyframes vlieg {
+  0% { translate: 0 0; }
+  30% { translate: 32vw -26px; }
+  60% { translate: 66vw 8px; }
+  100% { translate: calc(100vw + 120px) -18px; }
+}
+@keyframes fladder { 50% { scale: 1 .45; } }
+.focus-scene.stil .wolk, .focus-scene.stil .vogel { animation: none; }
+.focus-scene.stil .vogel { display: none; }
+
+.focus-midden { position: relative; z-index: 1; height: 100%; display: grid; place-items: center; padding: 24px; overflow: auto; }
+
+/* ---------- Opzet ---------- */
+.focus-kaart {
+  width: min(470px, 100%); padding: 26px 26px 22px; border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--paneel) 84%, transparent); backdrop-filter: blur(16px);
+  border: 1px solid var(--rand-zacht); box-shadow: var(--schaduw-2);
+  animation: plop 320ms cubic-bezier(.2,.8,.3,1.1);
+}
+.focus-kaart-kop { display: flex; align-items: center; gap: 10px; color: var(--accent); }
+.focus-kaart-kop h1 { color: var(--tekst); }
+.focus-kaart .sub { color: var(--tekst-zacht); margin: 4px 0 20px; }
+.focus-duren { display: flex; flex-wrap: wrap; width: 100%; }
+.focus-duren button { flex: 1; }
+.focus-start { width: 100%; height: 44px; font-size: 15px; margin-top: 4px; }
+
+/* ---------- Lopend ---------- */
+.focus-lopend { display: flex; flex-direction: column; align-items: center; gap: 26px; width: 100%; }
+.focus-wijzer { position: relative; width: min(340px, 58vh, 80vw); aspect-ratio: 1; }
+.focus-wijzer::before {
+  content: ""; position: absolute; inset: 6%; border-radius: 50%; z-index: -1;
+  background: radial-gradient(circle, color-mix(in srgb, var(--k) 30%, transparent), transparent 70%);
+  animation: adem 8s ease-in-out infinite;
+}
+@keyframes adem { 50% { transform: scale(1.12); opacity: .45; } }
+.focus-scene.stil ~ .focus-midden .focus-wijzer::before, .focus-lopend.pauze .focus-wijzer::before { animation: none; }
+.focus-ring { width: 100%; height: 100%; }
+.ring-baan { fill: color-mix(in srgb, var(--paneel) 62%, transparent); stroke: color-mix(in srgb, var(--tekst) 10%, transparent); stroke-width: 9; }
+.ring-voortgang {
+  fill: none; stroke: var(--k); stroke-width: 9; stroke-linecap: round;
+  transition: stroke-dashoffset 1s linear, stroke var(--zacht);
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--k) 55%, transparent));
+}
+.focus-binnen {
+  position: absolute; inset: 15%; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; gap: 2px; min-width: 0;
+}
+.focus-status { text-transform: uppercase; letter-spacing: .14em; font-size: 11px; font-weight: 700; color: var(--tekst-zacht); }
+.focus-klok {
+  font-family: var(--font-kop); font-size: clamp(42px, 8.5vh, 66px); font-weight: 650; letter-spacing: -.02em;
+  line-height: 1.05; font-variant-numeric: tabular-nums;
+}
+.focus-titel { font-weight: 650; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 10px; }
+.focus-vak { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--tekst-zacht); max-width: 100%; white-space: nowrap; overflow: hidden; }
+.focus-vak .stip { width: 8px; height: 8px; }
+.focus-knoppen { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.focus-knop { height: 40px; padding: 0 18px; backdrop-filter: blur(8px); }
+.knop.focus-knop:not(.primair) { background: color-mix(in srgb, var(--paneel) 80%, transparent); }
+.focus-lopend.pauze .focus-klok { opacity: .55; animation: puls 2.4s ease-in-out infinite; }
+.focus-lopend.voorbij .ring-voortgang { stroke: var(--ok); }
+.focus-lopend.voorbij .focus-status { color: var(--ok); }
