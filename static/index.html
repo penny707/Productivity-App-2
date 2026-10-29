@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="nl" data-thema="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Milio</title>
+  <link rel="icon" href="logo.svg" type="image/svg+xml" />
+  <script>
+    // Thema meteen toepassen, zodat er geen flits van het verkeerde thema is.
+    try { document.documentElement.dataset.thema = localStorage.getItem("milio-thema") || "dark"; } catch (e) {}
+  </script>
+  <link rel="stylesheet" href="css/basis.css" />
+  <link rel="stylesheet" href="css/vakken.css" />
+</head>
+<body>
+  <aside id="zijbalk" class="zijbalk" aria-label="Navigatie"></aside>
+  <main id="hoofd" class="hoofd"></main>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

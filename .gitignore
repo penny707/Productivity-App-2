@@ -1,0 +1,8 @@
+# Je persoonlijke gegevens blijven op je pc
+data.db
+data.db-journal
+*.db-wal
+*.db-shm
+
+__pycache__/
+*.pyc

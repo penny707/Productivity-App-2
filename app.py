@@ -1,0 +1,582 @@
+# app.py
+# Milio - lokale server. Enkel de Python-standaardbibliotheek, niets te installeren.
+# Start met: python app.py   (opent http://127.0.0.1:8766)
+#
+# Opties:
+#   --geen-browser     open geen browservenster bij het starten
+# Omgevingsvariabelen (handig om te testen zonder je echte data aan te raken):
+#   MILIO_DB=pad\naar\test.db   MILIO_PORT=8799
+
+import json
+import os
+import re
+import sqlite3
+import sys
+import threading
+import webbrowser
+from datetime import datetime
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, urlparse
+
+# ----------------------------------------------------------------------------
+# Configuratie
+# ----------------------------------------------------------------------------
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.environ.get("MILIO_DB") or os.path.join(BASE_DIR, "data.db")
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+HOST = "127.0.0.1"
+PORT = int(os.environ.get("MILIO_PORT") or 8766)
+# Elio staat standaard naast deze map; we lezen die database enkel (read-only).
+ELIO_DB = os.path.join(os.path.dirname(BASE_DIR), "Productivity App", "data.db")
+
+STANDAARD_INSTELLINGEN = {
+    "thema": "dark",
+    "sidebar_ingeklapt": "0",
+    "naam": "",
+    "dag_start": "7",
+    "dag_eind": "24",
+    "animaties": "1",
+    "verberg_klaar": "0",
+}
+
+
+# ----------------------------------------------------------------------------
+# Database
+# ----------------------------------------------------------------------------
+def get_conn():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
+
+
+def init_db():
+    conn = get_conn()
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS vakken (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            naam TEXT NOT NULL,
+            kleur TEXT NOT NULL DEFAULT '#5B7FD6',
+            volgorde INTEGER NOT NULL DEFAULT 0
+        );
+
+        CREATE TABLE IF NOT EXISTS onderdelen (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            vak_id INTEGER NOT NULL REFERENCES vakken(id) ON DELETE CASCADE,
+            parent_id INTEGER REFERENCES onderdelen(id) ON DELETE CASCADE,
+            titel TEXT NOT NULL,
+            volgorde INTEGER NOT NULL DEFAULT 0
+        );
+
+        CREATE TABLE IF NOT EXISTS taken (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            onderdeel_id INTEGER NOT NULL REFERENCES onderdelen(id) ON DELETE CASCADE,
+            titel TEXT NOT NULL,
+            type TEXT NOT NULL DEFAULT 'opdracht',
+            klaar INTEGER NOT NULL DEFAULT 0,
+            klaar_op TEXT,
+            deadline TEXT,
+            streefdatum TEXT,
+            notitie TEXT NOT NULL DEFAULT '',
+            volgorde INTEGER NOT NULL DEFAULT 0
+        );
+
+        -- start/eind: 'YYYY-MM-DDTHH:MM' in lokale tijd, of 'YYYY-MM-DD' bij hele dag
+        -- (bij hele dag is eind de laatste dag zelf).
+        CREATE TABLE IF NOT EXISTS events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            titel TEXT NOT NULL DEFAULT '',
+            start TEXT NOT NULL,
+            eind TEXT NOT NULL,
+            hele_dag INTEGER NOT NULL DEFAULT 0,
+            vak_id INTEGER REFERENCES vakken(id) ON DELETE SET NULL,
+            taak_id INTEGER REFERENCES taken(id) ON DELETE SET NULL,
+            kleur TEXT,
+            soort TEXT NOT NULL DEFAULT 'gepland',
+            notitie TEXT NOT NULL DEFAULT ''
+        );
+
+        CREATE TABLE IF NOT EXISTS instellingen (
+            sleutel TEXT PRIMARY KEY,
+            waarde TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_onderdelen_vak ON onderdelen(vak_id);
+        CREATE INDEX IF NOT EXISTS idx_taken_onderdeel ON taken(onderdeel_id);
+        CREATE INDEX IF NOT EXISTS idx_events_start ON events(start);
+        """
+    )
+    conn.executemany(
+        "INSERT OR IGNORE INTO instellingen (sleutel, waarde) VALUES (?, ?)",
+        STANDAARD_INSTELLINGEN.items(),
+    )
+    conn.commit()
+    conn.close()
+
+
+# ----------------------------------------------------------------------------
+# Validatie: elke kolom die de API mag schrijven heeft een kleine controlefunctie.
+# ----------------------------------------------------------------------------
+class Fout(Exception):
+    def __init__(self, bericht, status=400):
+        super().__init__(bericht)
+        self.status = status
+
+
+DATUM = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+MOMENT = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$")
+KLEUR = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+
+def tekst(max_len, verplicht=False):
+    def check(v):
+        v = ("" if v is None else str(v)).strip()[:max_len]
+        if verplicht and not v:
+            raise Fout("Dit veld mag niet leeg zijn.")
+        return v
+    return check
+
+
+def geheel(v):
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        raise Fout("Ongeldig getal.")
+
+
+def id_of_null(v):
+    return None if v in (None, "", 0) else geheel(v)
+
+
+def waar(v):
+    return 1 if v in (True, 1, "1", "true") else 0
+
+
+def datum_of_null(v):
+    if not v:
+        return None
+    if not DATUM.match(str(v)):
+        raise Fout("Ongeldige datum.")
+    return str(v)
+
+
+def moment(v):
+    v = str(v or "")
+    if not (DATUM.match(v) or MOMENT.match(v)):
+        raise Fout("Ongeldig tijdstip.")
+    return v
+
+
+def kleur(v):
+    if not KLEUR.match(str(v or "")):
+        raise Fout("Ongeldige kleur.")
+    return str(v)
+
+
+def kleur_of_null(v):
+    return kleur(v) if v else None
+
+
+def een_van(*opties):
+    def check(v):
+        if v not in opties:
+            raise Fout("Ongeldige keuze.")
+        return v
+    return check
+
+
+# tabel -> (kolommen met controle, verplichte kolommen bij aanmaken, kolom die de volgorde groepeert)
+TABELLEN = {
+    "vakken": (
+        {"naam": tekst(80, True), "kleur": kleur, "volgorde": geheel},
+        ["naam"],
+        None,
+    ),
+    "onderdelen": (
+        {"vak_id": geheel, "parent_id": id_of_null, "titel": tekst(120, True), "volgorde": geheel},
+        ["vak_id", "titel"],
+        "vak_id",
+    ),
+    "taken": (
+        {
+            "onderdeel_id": geheel,
+            "titel": tekst(160, True),
+            "type": een_van("opdracht", "theorie", "labo"),
+            "klaar": waar,
+            "deadline": datum_of_null,
+            "streefdatum": datum_of_null,
+            "notitie": tekst(4000),
+            "volgorde": geheel,
+        },
+        ["onderdeel_id", "titel"],
+        "onderdeel_id",
+    ),
+    "events": (
+        {
+            "titel": tekst(160),
+            "start": moment,
+            "eind": moment,
+            "hele_dag": waar,
+            "vak_id": id_of_null,
+            "taak_id": id_of_null,
+            "kleur": kleur_of_null,
+            "soort": een_van("gepland", "focus"),
+            "notitie": tekst(4000),
+        },
+        ["start", "eind"],
+        False,
+    ),
+}
+
+
+def controleer_event(rij):
+    """Start en eind moeten van hetzelfde soort zijn en eind mag niet voor start liggen."""
+    lang = 10 if rij["hele_dag"] else 16
+    if len(rij["start"]) != lang or len(rij["eind"]) != lang:
+        raise Fout("Start en einde passen niet bij 'hele dag'.")
+    if rij["eind"] < rij["start"] or (not rij["hele_dag"] and rij["eind"] == rij["start"]):
+        raise Fout("Het einde moet na het begin liggen.")
+
+
+def controleer_onderdeel(cur, rij):
+    if rij.get("parent_id"):
+        cur.execute("SELECT vak_id FROM onderdelen WHERE id = ?", (rij["parent_id"],))
+        p = cur.fetchone()
+        if not p or p["vak_id"] != rij["vak_id"]:
+            raise Fout("Ongeldig bovenliggend onderdeel.")
+
+
+def nu():
+    return datetime.now().strftime("%Y-%m-%dT%H:%M")
+
+
+def schoon(tabel, body, alles_verplicht):
+    velden, verplicht, _ = TABELLEN[tabel]
+    uit = {}
+    for k, check in velden.items():
+        if k in body:
+            uit[k] = check(body[k])
+    if alles_verplicht:
+        for k in verplicht:
+            if k not in uit:
+                raise Fout(f"'{k}' is verplicht.")
+    return uit
+
+
+def lees_rij(cur, tabel, rid):
+    cur.execute(f"SELECT * FROM {tabel} WHERE id = ?", (rid,))
+    r = cur.fetchone()
+    if not r:
+        raise Fout("Niet gevonden.", 404)
+    return dict(r)
+
+
+def maak(conn, tabel, body):
+    cur = conn.cursor()
+    rij = schoon(tabel, body, True)
+    groep = TABELLEN[tabel][2]
+    if groep is not False and "volgorde" not in rij:
+        if groep:
+            cur.execute(f"SELECT COALESCE(MAX(volgorde), -1) + 1 FROM {tabel} WHERE {groep} = ?", (rij[groep],))
+        else:
+            cur.execute(f"SELECT COALESCE(MAX(volgorde), -1) + 1 FROM {tabel}")
+        rij["volgorde"] = cur.fetchone()[0]
+    if tabel == "events":
+        rij.setdefault("hele_dag", 0)
+        controleer_event(rij)
+    if tabel == "onderdelen":
+        controleer_onderdeel(cur, rij)
+    if tabel == "taken" and rij.get("klaar"):
+        rij["klaar_op"] = nu()
+    kolommen = ", ".join(rij)
+    vraag = ", ".join("?" for _ in rij)
+    cur.execute(f"INSERT INTO {tabel} ({kolommen}) VALUES ({vraag})", list(rij.values()))
+    return lees_rij(cur, tabel, cur.lastrowid)
+
+
+def wijzig(conn, tabel, rid, body):
+    cur = conn.cursor()
+    oud = lees_rij(cur, tabel, rid)
+    rij = schoon(tabel, body, False)
+    if tabel == "onderdelen":
+        rij.pop("vak_id", None)  # een onderdeel verhuist niet naar een ander vak
+        if rij.get("parent_id") == rid:
+            raise Fout("Een onderdeel kan niet onder zichzelf staan.")
+        controleer_onderdeel(cur, {**oud, **rij})
+    if tabel == "events":
+        controleer_event({**oud, **rij})
+    if tabel == "taken" and "klaar" in rij and rij["klaar"] != oud["klaar"]:
+        rij["klaar_op"] = nu() if rij["klaar"] else None
+    if rij:
+        sets = ", ".join(f"{k} = ?" for k in rij)
+        cur.execute(f"UPDATE {tabel} SET {sets} WHERE id = ?", [*rij.values(), rid])
+    return lees_rij(cur, tabel, rid)
+
+
+def alle(cur, sql, args=()):
+    cur.execute(sql, args)
+    return [dict(r) for r in cur.fetchall()]
+
+
+def lees_instellingen(cur):
+    return {r["sleutel"]: r["waarde"] for r in alle(cur, "SELECT * FROM instellingen")}
+
+
+# ----------------------------------------------------------------------------
+# Elio-import: kopieert vakken, onderdelen en taken uit Elio's data.db.
+# Die database wordt read-only geopend, Elio zelf blijft onaangeroerd.
+# ----------------------------------------------------------------------------
+def elio_status(cur):
+    inst = lees_instellingen(cur)
+    return {
+        "gevonden": os.path.isfile(ELIO_DB),
+        "pad": ELIO_DB,
+        "geimporteerd_op": inst.get("elio_import"),
+    }
+
+
+def importeer_elio(conn):
+    cur = conn.cursor()
+    status = elio_status(cur)
+    if status["geimporteerd_op"]:
+        raise Fout("Elio is al eens geïmporteerd.")
+    if not status["gevonden"]:
+        raise Fout(f"Geen Elio-database gevonden op {ELIO_DB}.")
+
+    uri = "file:" + ELIO_DB.replace("\\", "/") + "?mode=ro"
+    bron = sqlite3.connect(uri, uri=True)
+    bron.row_factory = sqlite3.Row
+    try:
+        b = bron.cursor()
+        vakken = alle(b, "SELECT * FROM vakken ORDER BY volgorde, id")
+        onderdelen = alle(b, "SELECT * FROM onderdelen ORDER BY volgorde, id")
+        taken = alle(b, "SELECT * FROM taken ORDER BY volgorde, id")
+    finally:
+        bron.close()
+
+    cur.execute("SELECT COALESCE(MAX(volgorde), -1) + 1 FROM vakken")
+    start_volgorde = cur.fetchone()[0]
+    vak_map, ond_map = {}, {}
+    for i, v in enumerate(vakken):
+        k = v["kleur"] if KLEUR.match(v["kleur"] or "") else "#5B7FD6"
+        cur.execute("INSERT INTO vakken (naam, kleur, volgorde) VALUES (?, ?, ?)", (v["naam"], k, start_volgorde + i))
+        vak_map[v["id"]] = cur.lastrowid
+
+    # Ouders eerst: herhaal tot alle onderdelen met een gekende ouder geplaatst zijn.
+    rest = [o for o in onderdelen if o["vak_id"] in vak_map]
+    while rest:
+        volgende = []
+        for o in rest:
+            if o["parent_id"] and o["parent_id"] not in ond_map:
+                volgende.append(o)
+                continue
+            cur.execute(
+                "INSERT INTO onderdelen (vak_id, parent_id, titel, volgorde) VALUES (?, ?, ?, ?)",
+                (vak_map[o["vak_id"]], ond_map.get(o["parent_id"]), o["titel"], o["volgorde"]),
+            )
+            ond_map[o["id"]] = cur.lastrowid
+        if len(volgende) == len(rest):
+            break  # wezen zonder ouder: overslaan
+        rest = volgende
+
+    aantal_taken = 0
+    for t in taken:
+        if t["onderdeel_id"] not in ond_map:
+            continue
+        cur.execute(
+            """INSERT INTO taken (onderdeel_id, titel, type, klaar, deadline, streefdatum, volgorde)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (
+                ond_map[t["onderdeel_id"]],
+                t["titel"],
+                t["type"] if t["type"] in ("opdracht", "theorie", "labo") else "opdracht",
+                1 if t["klaar"] else 0,
+                t["deadline"],
+                t["streefdatum"],
+                t["volgorde"],
+            ),
+        )
+        aantal_taken += 1
+
+    cur.execute(
+        "INSERT OR REPLACE INTO instellingen (sleutel, waarde) VALUES ('elio_import', ?)",
+        (nu(),),
+    )
+    return {"vakken": len(vak_map), "onderdelen": len(ond_map), "taken": aantal_taken}
+
+
+# ----------------------------------------------------------------------------
+# HTTP
+# ----------------------------------------------------------------------------
+CONTENT_TYPES = {
+    ".html": "text/html; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8",
+    ".json": "application/json; charset=utf-8",
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
+    ".ico": "image/x-icon",
+}
+
+
+class AppHandler(BaseHTTPRequestHandler):
+    server_version = "Milio/1.0"
+
+    def log_message(self, fmt, *args):
+        pass  # stil, net als Elio
+
+    def stuur(self, data, status=200):
+        body = json.dumps(data, ensure_ascii=False).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def lees_body(self):
+        lengte = int(self.headers.get("Content-Length") or 0)
+        if lengte <= 0:
+            return {}
+        try:
+            data = json.loads(self.rfile.read(lengte).decode("utf-8"))
+        except ValueError:
+            raise Fout("Ongeldige JSON.")
+        if not isinstance(data, dict):
+            raise Fout("Ongeldige JSON.")
+        return data
+
+    def api(self, methode, delen, query):
+        body = self.lees_body() if methode in ("POST", "PUT") else {}
+        conn = get_conn()
+        try:
+            with conn:
+                cur = conn.cursor()
+                bron = delen[1] if len(delen) > 1 else ""
+
+                if bron == "data" and methode == "GET":
+                    return {
+                        "vakken": alle(cur, "SELECT * FROM vakken ORDER BY volgorde, id"),
+                        "onderdelen": alle(cur, "SELECT * FROM onderdelen ORDER BY volgorde, id"),
+                        "taken": alle(cur, "SELECT * FROM taken ORDER BY volgorde, id"),
+                        "instellingen": lees_instellingen(cur),
+                    }
+
+                if bron == "events" and methode == "GET" and len(delen) == 2:
+                    van = datum_of_null(query.get("van", [None])[0])
+                    tot = datum_of_null(query.get("tot", [None])[0])
+                    if not van or not tot:
+                        raise Fout("'van' en 'tot' zijn verplicht.")
+                    return alle(
+                        cur,
+                        "SELECT * FROM events WHERE start < ? AND eind >= ? ORDER BY start, id",
+                        (tot, van),
+                    )
+
+                if bron == "instellingen" and methode == "PUT":
+                    for k, v in body.items():
+                        cur.execute(
+                            "INSERT INTO instellingen (sleutel, waarde) VALUES (?, ?) "
+                            "ON CONFLICT(sleutel) DO UPDATE SET waarde = excluded.waarde",
+                            (str(k)[:60], str(v)[:20000]),
+                        )
+                    return lees_instellingen(cur)
+
+                if bron == "elio":
+                    if methode == "GET":
+                        return elio_status(cur)
+                    if methode == "POST":
+                        return importeer_elio(conn)
+
+                if bron in TABELLEN:
+                    if len(delen) == 2 and methode == "POST":
+                        return maak(conn, bron, body)
+                    if len(delen) == 3:
+                        rid = geheel(delen[2])
+                        if methode == "PUT":
+                            return wijzig(conn, bron, rid, body)
+                        if methode == "DELETE":
+                            cur.execute(f"DELETE FROM {bron} WHERE id = ?", (rid,))
+                            return {"ok": True}
+
+                raise Fout("API-route niet gevonden.", 404)
+        except sqlite3.IntegrityError:
+            raise Fout("Dit verwijst naar iets dat niet (meer) bestaat.")
+        finally:
+            conn.close()
+
+    def dispatch(self, methode):
+        url = urlparse(self.path)
+        delen = [d for d in url.path.split("/") if d]
+
+        if delen and delen[0] == "api":
+            try:
+                self.stuur(self.api(methode, delen, parse_qs(url.query)))
+            except Fout as f:
+                self.stuur({"fout": str(f)}, f.status)
+            except Exception as e:  # onverwacht: toon het, maar laat de server leven
+                self.stuur({"fout": f"Serverfout: {e}"}, 500)
+            return
+
+        if methode != "GET":
+            self.stuur({"fout": "Methode niet toegestaan."}, 405)
+            return
+
+        rel = url.path.lstrip("/") or "index.html"
+        bestand = os.path.realpath(os.path.join(STATIC_DIR, rel))
+        if not bestand.startswith(os.path.realpath(STATIC_DIR) + os.sep) or not os.path.isfile(bestand):
+            self.stuur({"fout": "Bestand niet gevonden."}, 404)
+            return
+        with open(bestand, "rb") as f:
+            data = f.read()
+        self.send_response(200)
+        self.send_header("Content-Type", CONTENT_TYPES.get(os.path.splitext(bestand)[1].lower(), "application/octet-stream"))
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-cache")
+        self.end_headers()
+        self.wfile.write(data)
+
+    def do_GET(self):
+        self.dispatch("GET")
+
+    def do_POST(self):
+        self.dispatch("POST")
+
+    def do_PUT(self):
+        self.dispatch("PUT")
+
+    def do_DELETE(self):
+        self.dispatch("DELETE")
+
+
+# ----------------------------------------------------------------------------
+# Start
+# ----------------------------------------------------------------------------
+def main():
+    init_db()
+    try:
+        server = ThreadingHTTPServer((HOST, PORT), AppHandler)
+    except OSError:
+        print(f"[!] Poort {PORT} is bezet. Draait Milio al in een ander venster?")
+        if "--geen-browser" not in sys.argv:
+            webbrowser.open(f"http://{HOST}:{PORT}/")
+        sys.exit(1)
+    url = f"http://{HOST}:{PORT}/"
+    print("=" * 60)
+    print(" Milio draait")
+    print(f" Open: {url}")
+    print(f" Database: {DB_PATH}")
+    print(" Sluiten: Ctrl+C of sluit dit venster")
+    print("=" * 60)
+    if "--geen-browser" not in sys.argv:
+        threading.Timer(0.8, lambda: webbrowser.open(url)).start()
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nServer gestopt.")
+        server.shutdown()
+
+
+if __name__ == "__main__":
+    main()

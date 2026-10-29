@@ -1,0 +1,124 @@
+/* =========================================================
+   Milio — vakken.css  (overzicht, vak-detail, taken)
+   ========================================================= */
+
+/* ---------- Overzicht: kaarten met berg ---------- */
+.vakken-raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; }
+
+.vak-kaart {
+  display: flex; flex-direction: column; text-decoration: none; color: inherit;
+  background: var(--paneel); border: 1px solid var(--rand-zacht); border-radius: var(--radius-l);
+  overflow: hidden; box-shadow: var(--schaduw-1);
+  transition: transform var(--zacht), box-shadow var(--zacht), border-color var(--zacht);
+  animation: verschijn 420ms both cubic-bezier(.2,.7,.3,1); animation-delay: calc(var(--i) * 40ms);
+}
+.vak-kaart:hover { transform: translateY(-3px); box-shadow: var(--schaduw-2); border-color: color-mix(in srgb, var(--k) 40%, var(--rand)); }
+.vak-kaart-scene {
+  height: 112px; position: relative;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--k) 10%, var(--paneel)), var(--paneel) 85%);
+}
+.vak-kaart-scene svg, .vak-strook-berg svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.vak-kaart-body { padding: 12px 16px 14px; display: flex; flex-direction: column; gap: 8px; }
+.vak-kaart-kop { display: flex; align-items: baseline; gap: 10px; }
+.vak-kaart-naam { font-family: var(--font-kop); font-weight: 650; font-size: 15.5px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vak-kaart-pct { font-family: var(--font-kop); font-weight: 700; font-size: 15px; color: var(--k); }
+.vak-kaart-meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12.5px; color: var(--tekst-zacht); }
+.vak-kaart-dl { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; }
+.vak-kaart-dl.vandaag, .vak-kaart-dl.verlopen { color: var(--gevaar); }
+
+/* ---------- Vak detail ---------- */
+.stip.groot { width: 14px; height: 14px; border-radius: 4px; }
+.vak-kop h1 { line-height: 1.2; }
+
+.vak-strook {
+  display: grid; grid-template-columns: minmax(200px, 300px) 1fr; gap: 0; margin-bottom: 26px;
+  background: var(--paneel); border: 1px solid var(--rand-zacht); border-radius: var(--radius-l); overflow: hidden;
+}
+.vak-strook-berg {
+  position: relative; min-height: 140px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--k) 12%, var(--paneel)), var(--paneel));
+}
+.vak-strook-info { padding: 18px 22px; display: flex; flex-direction: column; gap: 10px; justify-content: center; }
+.vak-strook-pct { font-family: var(--font-kop); font-size: 15px; color: var(--tekst-zacht); }
+.vak-strook-pct strong { font-size: 30px; color: var(--tekst); font-weight: 700; letter-spacing: -.02em; margin-right: 1px; }
+.vak-strook-types { display: flex; gap: 22px; flex-wrap: wrap; }
+.vak-strook-types > div { display: flex; align-items: center; gap: 8px; }
+.vak-strook-types strong { font-size: 15px; }
+.vak-strook-dl { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.vak-strook-dl svg { color: var(--gevaar); }
+
+.sectie-kop { display: flex; align-items: center; gap: 16px; margin: 0 0 12px; }
+.sectie-kop h2 { margin-right: auto; }
+
+/* ---------- Onderdelen ---------- */
+.onderdelen { display: flex; flex-direction: column; gap: 10px; }
+.ond { background: var(--paneel); border: 1px solid var(--rand-zacht); border-radius: var(--radius-m); }
+.ond-subs { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.ond-subs .ond { background: var(--paneel-2); border-color: transparent; }
+
+.ond-kop {
+  display: flex; align-items: center; gap: 10px; padding: 9px 10px 9px 12px; cursor: pointer; user-select: none;
+  border-radius: var(--radius-m); min-height: 44px;
+}
+.ond-kop:hover { background: color-mix(in srgb, var(--paneel-2) 60%, transparent); }
+.ond-pijl { color: var(--tekst-flauw); display: grid; transition: transform var(--zacht); }
+.ond.open > .ond-kop .ond-pijl { transform: rotate(90deg); }
+.ond-titel { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ond.af > .ond-kop .ond-titel { color: var(--tekst-zacht); }
+.ond-teller { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--tekst-zacht); font-weight: 600; }
+.ring circle { transition: stroke-dashoffset 600ms cubic-bezier(.2,.7,.3,1); }
+.ond-acties { display: flex; gap: 2px; opacity: 0; transition: opacity var(--snel); }
+.ond-kop:hover .ond-acties, .ond-kop:focus-within .ond-acties { opacity: 1; }
+
+.ond-body { display: none; padding: 0 12px 12px 34px; }
+.ond.open > .ond-body { display: block; }
+.ond-verborgen { padding: 2px 0 0 34px; }
+
+/* ---------- Taken ---------- */
+.taken { display: flex; flex-direction: column; }
+.taak {
+  display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 3px 6px 3px 4px; margin: 0 -6px 0 -4px;
+  border-radius: var(--radius-s); transition: background var(--snel);
+}
+.taak:hover { background: var(--paneel-2); }
+.taak-titel {
+  flex: 1; min-width: 0; text-align: left; border: none; background: none; padding: 4px 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: color var(--zacht);
+}
+.taak.klaar .taak-titel { color: var(--tekst-flauw); text-decoration: line-through; text-decoration-color: var(--tekst-flauw); }
+.taak.klaar .type, .taak.klaar .chip { opacity: .5; }
+.taak.net { animation: afgewerkt 700ms ease-out; }
+@keyframes afgewerkt { 0% { background: color-mix(in srgb, var(--ok) 22%, transparent); } 100% { background: transparent; } }
+.taak-notitie { color: var(--tekst-flauw); display: grid; }
+.taak-acties { display: flex; gap: 1px; opacity: 0; transition: opacity var(--snel); }
+.taak:hover .taak-acties, .taak:focus-within .taak-acties { opacity: 1; }
+
+/* Ronde vink met getekend vinkje */
+.vink {
+  width: 20px; height: 20px; border-radius: 50%; padding: 0; display: grid; place-items: center; flex-shrink: 0;
+  border: 1.8px solid var(--tekst-flauw); background: transparent; color: transparent;
+  transition: background var(--snel), border-color var(--snel), transform var(--snel);
+}
+.vink:hover { border-color: var(--k, var(--accent)); background: color-mix(in srgb, var(--k, var(--accent)) 14%, transparent); }
+.vink:active { transform: scale(.88); }
+.vink.aan { background: var(--k, var(--accent)); border-color: var(--k, var(--accent)); color: #fff; }
+.vink svg path { stroke-dasharray: 24; stroke-dashoffset: 0; }
+.vink.net svg path { animation: teken 380ms 60ms both cubic-bezier(.3,.7,.3,1); }
+.vink.net { animation: pop 380ms cubic-bezier(.3,1.6,.5,1); }
+@keyframes teken { from { stroke-dashoffset: 24; } }
+@keyframes pop { 40% { transform: scale(1.22); } }
+
+/* Snel toevoegen */
+.nieuw-taak {
+  display: flex; align-items: center; gap: 10px; height: 38px; margin: 2px -6px 0 -4px; padding: 0 6px 0 7px;
+  color: var(--tekst-flauw); border-radius: var(--radius-s);
+}
+.nieuw-taak:focus-within { background: var(--paneel-2); color: var(--accent); }
+.nieuw-invoer { flex: 1; min-width: 0; border: none; background: transparent; height: 100%; padding: 0 0 0 3px; }
+.nieuw-invoer:focus { outline: none; }
+.nieuw-invoer::placeholder { color: var(--tekst-flauw); }
+.nieuw-type {
+  height: 26px; border: 1px solid var(--rand); border-radius: 6px; background: var(--paneel); color: var(--tekst-zacht);
+  font-size: 12px; padding: 0 4px; opacity: 0; transition: opacity var(--snel);
+}
+.nieuw-taak:focus-within .nieuw-type, .nieuw-taak:hover .nieuw-type { opacity: 1; }
