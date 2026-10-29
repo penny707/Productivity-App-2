@@ -2,9 +2,9 @@
    Milio — main.js
    Opstart, routing, zijbalk, thema en sneltoetsen.
    ========================================================= */
-import { $, el, svg, icoon, vandaag, pasThemaToe } from "./util.js";
+import { $, el, svg, icoon, vandaag, pasThemaToe, api } from "./util.js";
 import { S, laad, opWijziging, voortgang, zetInst } from "./store.js";
-import { vakModal } from "./modals.js";
+import { vakModal, bevestig } from "./modals.js";
 import { instellingenModal } from "./instellingen.js";
 import { renderOverzicht, renderVak } from "./views/vakken.js";
 import * as kalender from "./views/kalender.js";
@@ -49,6 +49,7 @@ function leesRoute() {
 }
 
 function render() {
+  if (gesloten) return;
   if (huidigeView?.bezig?.()) { uitgesteld = true; return; }
   uitgesteld = false;
   const route = leesRoute();
@@ -70,6 +71,7 @@ function render() {
 // Klok: views met een tik() krijgen elke halve minuut een seintje (nu-lijn, dagboog).
 let laatsteDag = null;
 setInterval(() => {
+  if (gesloten) return;
   const dag = new Date().toDateString();
   if (laatsteDag && dag !== laatsteDag) render(); // middernacht: alles opnieuw
   laatsteDag = dag;
@@ -79,8 +81,10 @@ setInterval(() => {
 
 // Elke seconde: de lopende focustimer in de zijbalk en de tabtitel.
 setInterval(() => {
+  if (gesloten) return;
   const st = focus.focusStaat();
-  document.title = st ? `${focus.klokTekst(st)} · ${st.titel || "Focus"}` : "Milio";
+  // Eindigt altijd op "Milio": zo vindt een tweede dubbelklik dit venster terug.
+  document.title = st ? `${focus.klokTekst(st)} · ${st.titel || "Focus"} · Milio` : "Milio";
   const pil = $(".focus-pil-tijd");
   if (pil && st) pil.textContent = focus.klokTekst(st);
 }, 1000);
@@ -148,8 +152,35 @@ function renderZijbalk(actief, route) {
       }, icoon(THEMA_ICOON[thema] || "maan", 17, 1.8)),
       el("span", { class: "thema-label" }, THEMAS[thema]),
       el("button", { class: "icoon-knop voet-rechts", title: "Instellingen", "aria-label": "Instellingen", onclick: instellingenModal }, icoon("instellingen", 17, 1.8)),
+      el("button", { class: "icoon-knop gevaar", title: "Milio afsluiten", "aria-label": "Milio afsluiten", onclick: afsluiten }, icoon("afsluiten", 17, 1.9)),
     ),
   ].filter(Boolean));
+}
+
+// ---------- Afsluiten ----------
+// Milio draait zonder zwart venster, dus stoppen gebeurt hier.
+let gesloten = false;
+async function afsluiten() {
+  const loopt = focus.focusStaat();
+  const ok = await bevestig("Milio afsluiten?",
+    "Milio stopt op de achtergrond. Alles is al opgeslagen. " +
+    (loopt ? "Je focussessie blijft bewaard en loopt verder als je Milio opnieuw opent. " : "") +
+    "Dubbelklik op Milio op je bureaublad om later verder te gaan.", "Afsluiten");
+  if (!ok) return;
+  try {
+    await api("/afsluiten", "POST");
+  } catch {
+    return; // server kon niet stoppen (de toast zegt waarom): Milio blijft open
+  }
+  gesloten = true;
+  document.title = "Milio (gesloten)";
+  document.body.replaceChildren(el("div", { class: "gesloten" },
+    svg(LOGO),
+    el("h1", {}, "Milio is gesloten"),
+    el("p", {}, "Je gegevens zijn bewaard. Je mag dit venster sluiten."),
+    el("p", { class: "klein" }, "Verder werken? Dubbelklik op Milio op je bureaublad."),
+  ));
+  window.close(); // lukt enkel in het eigen appvenster; anders blijft deze melding staan
 }
 
 // ---------- Sneltoetsen ----------

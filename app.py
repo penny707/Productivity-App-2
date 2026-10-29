@@ -1,18 +1,24 @@
 # app.py
 # Milio - lokale server. Enkel de Python-standaardbibliotheek, niets te installeren.
 # Start met: python app.py   (opent http://127.0.0.1:8766)
+# Zonder zwart venster: start_app.pyw (daar wijst de bureaubladsnelkoppeling naar).
 #
 # Opties:
-#   --geen-browser     open geen browservenster bij het starten
+#   --geen-browser     open geen venster bij het starten
 # Omgevingsvariabelen (handig om te testen zonder je echte data aan te raken):
 #   MILIO_DB=pad\naar\test.db   MILIO_PORT=8799
 
+import hashlib
 import json
 import os
 import re
 import sqlite3
+import subprocess
 import sys
 import threading
+import time
+import urllib.error
+import urllib.request
 import webbrowser
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -26,6 +32,17 @@ DB_PATH = os.environ.get("MILIO_DB") or os.path.join(BASE_DIR, "data.db")
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 HOST = "127.0.0.1"
 PORT = int(os.environ.get("MILIO_PORT") or 8766)
+URL = f"http://{HOST}:{PORT}/"
+APP_ID = "milio"
+VENSTER_TITEL = "Milio"  # gelijk aan <title> in static/index.html
+BACKUP_DIR = os.path.join(os.path.dirname(DB_PATH), "backups")
+BACKUPS_BEWAREN = 14
+SERVER = None
+
+# Vingerafdruk van deze code: draait er bij het starten nog een oudere versie
+# (bv. na een update), dan wordt die automatisch vervangen.
+with open(os.path.abspath(__file__), "rb") as _f:
+    CODE_VERSIE = hashlib.sha1(_f.read()).hexdigest()[:12]
 # Elio kan op meerdere plaatsen staan; we nemen de database die het laatst gebruikt werd.
 # Die wordt enkel gelezen (read-only). MILIO_ELIO=pad\naar\data.db wijst er zelf een aan.
 ELIO_KANDIDATEN = [
@@ -126,6 +143,39 @@ def init_db():
     )
     conn.commit()
     conn.close()
+
+
+def maak_backup():
+    """
+    Eén backup per dag in backups/data-JJJJ-MM-DD.db, via de SQLite backup-API
+    (veilig terwijl Milio draait). Enkel de laatste BACKUPS_BEWAREN blijven.
+    """
+    if not os.path.isfile(DB_PATH):
+        return
+    os.makedirs(BACKUP_DIR, exist_ok=True)
+    doel = os.path.join(BACKUP_DIR, f"data-{datetime.now():%Y-%m-%d}.db")
+    if not os.path.exists(doel):
+        tijdelijk = doel + ".bezig"  # pas hernoemen als de kopie volledig is
+        bron, kopie = sqlite3.connect(DB_PATH), sqlite3.connect(tijdelijk)
+        try:
+            bron.backup(kopie)
+        finally:
+            kopie.close()
+            bron.close()
+        os.replace(tijdelijk, doel)
+    backups = sorted(f for f in os.listdir(BACKUP_DIR) if f.startswith("data-") and f.endswith(".db"))
+    for oud in backups[:-BACKUPS_BEWAREN]:
+        os.remove(os.path.join(BACKUP_DIR, oud))
+
+
+def backup_lus():
+    # Milio kan dagen blijven draaien: kijk elk uur of de backup van vandaag er al is.
+    while True:
+        time.sleep(3600)
+        try:
+            maak_backup()
+        except Exception:
+            pass
 
 
 # ----------------------------------------------------------------------------
@@ -471,6 +521,13 @@ class AppHandler(BaseHTTPRequestHandler):
                 cur = conn.cursor()
                 bron = delen[1] if len(delen) > 1 else ""
 
+                if bron == "status" and methode == "GET":
+                    return {"app": APP_ID, "versie": CODE_VERSIE}
+
+                if bron == "afsluiten" and methode == "POST":
+                    threading.Thread(target=SERVER.shutdown, daemon=True).start()
+                    return {"ok": True}
+
                 if bron == "data" and methode == "GET":
                     return {
                         "vakken": alle(cur, "SELECT * FROM vakken ORDER BY volgorde, id"),
@@ -588,32 +645,153 @@ class AppHandler(BaseHTTPRequestHandler):
         self.dispatch("DELETE")
 
 
+class AppServer(ThreadingHTTPServer):
+    # Op Windows laat SO_REUSEADDR een tweede server op dezelfde poort toe.
+    # Uitzetten, zodat een tweede start merkt dat Milio al draait.
+    allow_reuse_address = False
+
+
 # ----------------------------------------------------------------------------
 # Start
 # ----------------------------------------------------------------------------
+def meld_fout(bericht):
+    """In de console, of als pop-up wanneer Milio zonder console draait (pythonw)."""
+    if sys.stdout is not None:
+        print(f"[!] {bericht}")
+    elif sys.platform == "win32":
+        import ctypes
+        ctypes.windll.user32.MessageBoxW(None, bericht, "Milio", 0x10)
+
+
+def naar_server(pad, data=None):
+    """Praat met een Milio die al draait (zonder proxy: het is je eigen pc)."""
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    req = urllib.request.Request(URL + pad, data=data, method="POST" if data else "GET",
+                                 headers={"Content-Type": "application/json"})
+    with opener.open(req, timeout=2) as res:
+        return json.loads(res.read().decode("utf-8"))
+
+
+def bind_server(pogingen=1):
+    for i in range(pogingen):
+        try:
+            return AppServer((HOST, PORT), AppHandler)
+        except OSError:
+            if i == pogingen - 1:
+                raise
+            time.sleep(0.25)
+
+
+def zoek_edge():
+    for basis in ("ProgramFiles(x86)", "ProgramFiles", "LocalAppData"):
+        pad = os.path.join(os.environ.get(basis) or "", "Microsoft", "Edge", "Application", "msedge.exe")
+        if os.path.isfile(pad):
+            return pad
+    return None
+
+
+def toon_bestaand_venster():
+    """Haalt een open Milio-venster naar voren. Een Edge-appvenster heeft de paginatitel
+    als venstertitel ("Milio", of "12:34 · taak · Milio" tijdens een focussessie)."""
+    if sys.platform != "win32":
+        return False
+    import ctypes
+    from ctypes import wintypes
+    user32 = ctypes.windll.user32
+    gevonden = []
+
+    @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    def bekijk(hwnd, _):
+        lengte = user32.GetWindowTextLengthW(hwnd)
+        if not lengte or not user32.IsWindowVisible(hwnd):
+            return True
+        titel = ctypes.create_unicode_buffer(lengte + 1)
+        user32.GetWindowTextW(hwnd, titel, lengte + 1)
+        klasse = ctypes.create_unicode_buffer(64)
+        user32.GetClassNameW(hwnd, klasse, 64)
+        t = titel.value
+        if (t == VENSTER_TITEL or t.endswith(" · " + VENSTER_TITEL)) and klasse.value.startswith("Chrome_WidgetWin"):
+            gevonden.append(hwnd)
+            return False
+        return True
+
+    user32.EnumWindows(bekijk, 0)
+    if not gevonden:
+        return False
+    if user32.IsIconic(gevonden[0]):
+        user32.ShowWindow(gevonden[0], 9)  # SW_RESTORE
+    user32.SetForegroundWindow(gevonden[0])
+    return True
+
+
+def toon_app():
+    """Eén Milio-venster: bestaat het al, dan dat tonen; anders een Edge-appvenster
+    (zonder adresbalk) openen, of je gewone browser als Edge er niet is."""
+    if "--geen-browser" in sys.argv or toon_bestaand_venster():
+        return
+    edge = zoek_edge()
+    if edge:
+        try:
+            subprocess.Popen([edge, f"--app={URL}"])
+            return
+        except OSError:
+            pass
+    webbrowser.open(URL)
+
+
 def main():
+    global SERVER
+    try:
+        SERVER = bind_server()
+    except OSError:
+        try:
+            status = naar_server("api/status")
+        except urllib.error.HTTPError as e:
+            if str(e.headers.get("Server", "")).startswith("Milio"):
+                # Een Milio van vóór de afsluitknop: die kan zichzelf niet laten stoppen.
+                meld_fout("Er draait nog een oudere Milio in een zwart venster (zie je taakbalk).\n"
+                          "Sluit dat venster en dubbelklik daarna opnieuw op Milio.")
+                sys.exit(1)
+            status = {}
+        except Exception:
+            status = {}
+        if status.get("app") != APP_ID:
+            meld_fout(f"Poort {PORT} is in gebruik door een ander programma.\nHerstart je pc en probeer opnieuw.")
+            sys.exit(1)
+        if status.get("versie") == CODE_VERSIE:
+            toon_app()  # tweede dubbelklik: gewoon het venster tonen
+            return
+        try:  # er draait een oudere versie (na een update): vervangen
+            naar_server("api/afsluiten", b"{}")
+        except Exception:
+            pass
+        try:
+            SERVER = bind_server(pogingen=20)
+        except OSError:
+            meld_fout("De vorige versie van Milio kon niet gestopt worden.\nHerstart je pc en probeer opnieuw.")
+            sys.exit(1)
+
     init_db()
     try:
-        server = ThreadingHTTPServer((HOST, PORT), AppHandler)
-    except OSError:
-        print(f"[!] Poort {PORT} is bezet. Draait Milio al in een ander venster?")
-        if "--geen-browser" not in sys.argv:
-            webbrowser.open(f"http://{HOST}:{PORT}/")
-        sys.exit(1)
-    url = f"http://{HOST}:{PORT}/"
+        maak_backup()
+    except Exception as e:
+        meld_fout(f"Backup maken mislukt: {e}")
+    threading.Thread(target=backup_lus, daemon=True).start()
+
     print("=" * 60)
     print(" Milio draait")
-    print(f" Open: {url}")
+    print(f" Open: {URL}")
     print(f" Database: {DB_PATH}")
-    print(" Sluiten: Ctrl+C of sluit dit venster")
+    print(f" Backups: {BACKUP_DIR}")
+    print(" Sluiten: Ctrl+C in dit venster, of 'Afsluiten' in Milio")
     print("=" * 60)
-    if "--geen-browser" not in sys.argv:
-        threading.Timer(0.8, lambda: webbrowser.open(url)).start()
+    toon_app()
     try:
-        server.serve_forever()
+        SERVER.serve_forever()
     except KeyboardInterrupt:
-        print("\nServer gestopt.")
-        server.shutdown()
+        pass
+    SERVER.server_close()
+    print("\nServer gestopt.")
 
 
 if __name__ == "__main__":

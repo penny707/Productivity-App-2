@@ -3,6 +3,8 @@ data.db
 data.db-journal
 *.db-wal
 *.db-shm
+backups/
+fout.log
 
 __pycache__/
 *.pyc

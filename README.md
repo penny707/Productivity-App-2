@@ -6,9 +6,15 @@ Lokaal, snel en zonder installatie: Python (enkel de standaardbibliotheek), SQLi
 
 ## Starten
 
-Dubbelklik op de snelkoppeling **Milio** op je bureaublad (of op `start_app.bat` in deze map). Je browser opent `http://127.0.0.1:8766`.
-De snelkoppeling start het zwarte servervenster geminimaliseerd: je ziet het als "Milio" in je taakbalk.
-Stoppen: sluit dat venster (of druk er `Ctrl+C` in). Dubbelklik je terwijl Milio al draait, dan opent gewoon je browser.
+Dubbelklik op de snelkoppeling **Milio** op je bureaublad. Milio opent in een eigen venster (Edge zonder adresbalk, of je gewone browser als Edge er niet is). Er verschijnt geen zwart venster: de snelkoppeling start `start_app.pyw` met `pythonw`.
+
+- **Stoppen**: de aan/uit-knop linksonder in Milio (naast het tandwiel). Het venster sluiten alleen laat Milio op de achtergrond verder draaien; dat is niet erg, de volgende dubbelklik opent hem gewoon weer.
+- **Al open?** Een tweede dubbelklik haalt het bestaande venster naar voren in plaats van een tweede Milio te starten.
+- **Na een update** (nieuwe `app.py`) vervangt een dubbelklik automatisch de oude versie die nog draaide.
+- **Liever met console** (om meldingen te zien)? Gebruik `start_app.bat`. Foutmeldingen zonder console verschijnen als pop-up en komen in `fout.log`.
+
+Snelkoppeling kwijt? Rechtermuisknop op het bureaublad › Nieuw › Snelkoppeling, en geef als locatie:
+`pythonw "D:\Productivity App 2\start_app.pyw"`. Het icoon staat in `static\milio.ico`.
 
 Vereisten: Windows 10/11, Python 3.8 of nieuwer ("Add Python to PATH" aangevinkt), een moderne browser.
 
@@ -57,7 +63,9 @@ Die database wordt **alleen-lezen** geopend: Elio zelf verandert niet. Importere
 ## Je gegevens
 
 - Alles staat in **`data.db`** in deze map. Dat bestand gaat nooit mee naar GitHub (zie `.gitignore`).
-- Backup = `data.db` kopiëren naar OneDrive of een USB-stick. Doe dat bv. wekelijks.
+- **Automatische backups**: elke dag één kopie in `backups\data-JJJJ-MM-DD.db` (bij het starten, en elk uur gecontroleerd als Milio blijft draaien). De laatste 14 blijven bewaard. Ook die gaan nooit naar GitHub.
+- Terugzetten: sluit Milio af, kopieer de gewenste backup naar `data.db` in deze map, start opnieuw.
+- Die backups staan op dezelfde schijf. Kopieer `data.db` dus af en toe ook naar OneDrive of een USB-stick.
 - Afgevinkte taken blijven bewaard (met het tijdstip waarop je ze afvinkte).
 
 ## Privacy en veiligheid
@@ -80,8 +88,9 @@ Die database wordt **alleen-lezen** geopend: Elio zelf verandert niet. Importere
 ## Mapstructuur
 
 ```
-app.py              server + database (SQLite)
-start_app.bat       dubbelklik om te starten
+app.py              server + database (SQLite) + dagelijkse backups
+start_app.pyw       start zonder zwart venster (de snelkoppeling wijst hiernaar)
+start_app.bat       start met console, handig om meldingen te zien
 static/
   index.html
   css/              basis, vakken, kalender, vandaag (Kompas), focus
@@ -108,6 +117,8 @@ python app.py --geen-browser
 ## Problemen?
 
 - **"Python is niet gevonden"**: installeer Python en vink "Add Python to PATH" aan, of herstart je pc.
-- **Poort bezet**: Milio draait waarschijnlijk al in een ander zwart venster.
-- **Browser opent niet**: ga zelf naar `http://127.0.0.1:8766`.
+- **"Er draait nog een oudere Milio"**: sluit het zwarte Milio-venster in je taakbalk en dubbelklik opnieuw.
+- **"Poort in gebruik door een ander programma"**: herstart je pc.
+- **Er opent geen venster**: ga zelf naar `http://127.0.0.1:8766`.
+- **Milio stopt meteen**: kijk in `fout.log` in deze map, of start `start_app.bat` om de melding te zien.
 - **Iets ziet er vreemd uit na een update**: herlaad de pagina met `Ctrl+F5`.
