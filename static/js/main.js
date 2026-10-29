@@ -2,13 +2,15 @@
    Milio — main.js
    Opstart, routing, zijbalk, thema en sneltoetsen.
    ========================================================= */
-import { $, el, svg, icoon, vandaag } from "./util.js";
+import { $, el, svg, icoon, vandaag, pasThemaToe } from "./util.js";
 import { S, laad, opWijziging, voortgang, zetInst } from "./store.js";
 import { vakModal } from "./modals.js";
+import { instellingenModal } from "./instellingen.js";
 import { renderOverzicht, renderVak } from "./views/vakken.js";
 import * as kalender from "./views/kalender.js";
 import * as kompas from "./views/vandaag.js";
 import * as focus from "./views/focus.js";
+import * as deadlines from "./views/deadlines.js";
 
 // ---------- Views ----------
 // vol = de view vult het hele scherm zonder te scrollen (kalender, focus)
@@ -17,12 +19,14 @@ const VIEWS = {
   kalender: { ...kalender, nav: "kalender", vol: true },
   vakken: { render: renderOverzicht, nav: "vakken" },
   vak: { render: renderVak, nav: "vakken" },
+  deadlines: { ...deadlines, nav: "deadlines" },
   focus: { ...focus, nav: "focus", vol: true },
 };
 const NAV = [
   { route: "vandaag", label: "Kompas", icoon: "kompas", teller: () => tellerEl(kompasOpen()) },
   { route: "kalender", label: "Kalender", icoon: "kalender" },
   { route: "vakken", label: "Vakken", icoon: "vakken" },
+  { route: "deadlines", label: "Deadlines", icoon: "vlag", teller: () => tellerEl(S.taken.filter((t) => !t.klaar && t.deadline && t.deadline < vandaag()).length, true) },
   { route: "focus", label: "Focus", icoon: "focus" },
 ];
 const STANDAARD = "vandaag";
@@ -89,16 +93,12 @@ window.addEventListener("resize", () => {
 
 // ---------- Zijbalk ----------
 const THEMAS = { dark: "Donker", grey: "Grijs", light: "Licht" };
+const THEMA_ICOON = { dark: "maan", grey: "berg", light: "zon" };
 // Inline (niet als <img>), anders flikkert het logo bij elke her-render.
 const LOGO = `<svg class="merk-logo" viewBox="0 0 32 32" aria-hidden="true">
   <defs><linearGradient id="logo-lucht" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9db2ff"/><stop offset="1" stop-color="#5a6fd8"/></linearGradient></defs>
   <rect width="32" height="32" rx="8" fill="url(#logo-lucht)"/><circle cx="21.5" cy="10.5" r="3.4" fill="#ffe0a3"/>
   <path d="M3 27 L11.5 14 L15.5 19.5 L19.5 15 L29 27 Z" fill="#fff" opacity=".96"/></svg>`;
-
-function pasThemaToe(thema) {
-  document.documentElement.dataset.thema = thema;
-  localStorage.setItem("milio-thema", thema);
-}
 
 function renderZijbalk(actief, route) {
   const z = $("#zijbalk");
@@ -145,8 +145,9 @@ function renderZijbalk(actief, route) {
           pasThemaToe(volgende);
           zetInst({ thema: volgende });
         },
-      }, icoon(thema === "light" ? "zon" : "maan", 17, 1.8)),
+      }, icoon(THEMA_ICOON[thema] || "maan", 17, 1.8)),
       el("span", { class: "thema-label" }, THEMAS[thema]),
+      el("button", { class: "icoon-knop voet-rechts", title: "Instellingen", "aria-label": "Instellingen", onclick: instellingenModal }, icoon("instellingen", 17, 1.8)),
     ),
   ].filter(Boolean));
 }

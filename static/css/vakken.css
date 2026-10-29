@@ -44,8 +44,40 @@
 .vak-strook-types { display: flex; gap: 22px; flex-wrap: wrap; }
 .vak-strook-types > div { display: flex; align-items: center; gap: 8px; }
 .vak-strook-types strong { font-size: 15px; }
-.vak-strook-dl { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.vak-strook-dl, .vak-strook-tijd { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .vak-strook-dl svg { color: var(--gevaar); }
+.vak-strook-tijd svg { color: var(--k); }
+.vak-kaart-tijd {
+  position: absolute; top: 10px; left: 10px; z-index: 1; display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 650; color: #fff;
+  background: rgba(10, 12, 20, .35); backdrop-filter: blur(6px);
+}
+
+/* ---------- Deadlines ---------- */
+.dl-tabs { margin-bottom: 22px; }
+.dl-tab-n { margin-left: 7px; font-size: 11px; padding: 1px 6px; border-radius: 8px; background: var(--paneel-3); color: var(--tekst-zacht); }
+.dl-groep { margin-bottom: 22px; }
+.dl-groep h2 { margin-bottom: 10px; }
+.dl-groep.te-laat h2 { color: var(--gevaar); }
+.dl-rij { position: relative; padding-top: 8px; padding-bottom: 8px; }
+.dl-kleur { width: 4px; align-self: stretch; border-radius: 4px; background: var(--k); margin-right: 2px; }
+.dl-datum { display: flex; flex-direction: column; align-items: flex-end; font-size: 12px; color: var(--tekst-zacht); white-space: nowrap; }
+.dl-datum strong { color: var(--tekst); font-size: 13px; }
+.dl-datum.te-laat, .dl-datum.te-laat strong, .dl-datum.vandaag strong { color: var(--gevaar); }
+
+/* ---------- Instellingen ---------- */
+.inst-blok { display: flex; flex-direction: column; gap: 6px; padding: 14px 0 0; margin-top: 14px; border-top: 1px solid var(--rand-zacht); }
+.inst-blok .knop { align-self: flex-start; }
+.inst-elio { display: flex; flex-direction: column; gap: 8px; }
+.inst-elio .klein svg { vertical-align: -2px; color: var(--ok); }
+.elio-aanbod {
+  align-items: center; max-width: 420px; margin-top: 18px; padding: 14px 16px; text-align: center;
+  border-radius: var(--radius-m); background: var(--accent-zacht);
+}
+.elio-aanbod .knop { align-self: center; }
+code { font-family: ui-monospace, Consolas, monospace; font-size: 12px; background: var(--paneel-2); padding: 1px 5px; border-radius: 4px; }
+.zijbalk-voet .voet-rechts { margin-left: auto; }
+.zijbalk.ingeklapt .zijbalk-voet .voet-rechts { margin-left: 0; }
 
 .sectie-kop { display: flex; align-items: center; gap: 16px; margin: 0 0 12px; }
 .sectie-kop h2 { margin-right: auto; }

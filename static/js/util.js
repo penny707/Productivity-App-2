@@ -168,6 +168,12 @@ export function datumStatus(dag) {
   return dag < t ? "verlopen" : dag === t ? "vandaag" : "";
 }
 
+// ---------- Thema ----------
+export function pasThemaToe(thema) {
+  document.documentElement.dataset.thema = thema;
+  try { localStorage.setItem("milio-thema", thema); } catch { /* privévenster */ }
+}
+
 // ---------- Kleur ----------
 export const KLEUREN = [
   "#5B7FD6", "#4E9F6E", "#D0605B", "#C99A2E", "#8B6CC9",

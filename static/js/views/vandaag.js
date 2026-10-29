@@ -10,6 +10,7 @@ import { taakModal } from "../modals.js";
 import { bergruggen } from "../bergen.js";
 import { vinkKnop } from "./vakken.js";
 import { planTaak } from "./kalender.js";
+import { elioBlok } from "../instellingen.js";
 
 const MAX_KEUZES = 3;
 
@@ -192,14 +193,17 @@ function hero(gekozen) {
     nuTekst = [el("span", { class: "nu-pil vrij" }, "vrij"), "Niets meer gepland vandaag"];
   }
 
-  return el("section", { class: "kompas-hero", style: lucht() },
-    svg(dagboog(vandaagEvents)),
-    el("div", { class: "kompas-hero-tekst" },
+  return el("div", { class: "kompas-hero" },
+    el("header", { class: "kompas-hero-tekst" },
       el("h1", {}, naam ? `${groet(new Date().getHours())}, ${naam}` : groet(new Date().getHours())),
-      el("p", { class: "kompas-datum" }, fmtDag(d, { weekday: "long", day: "numeric", month: "long" })),
-      samenvatting ? el("p", { class: "kompas-samenvatting" }, samenvatting) : null,
+      el("p", { class: "sub" },
+        el("span", { class: "kompas-datum" }, fmtDag(d, { weekday: "long", day: "numeric", month: "long" })),
+        samenvatting ? ` · ${samenvatting}` : ""),
     ),
-    el("div", { class: "kompas-nu" }, nuTekst),
+    el("section", { class: "kompas-scene", style: lucht() },
+      svg(dagboog(vandaagEvents)),
+      el("div", { class: "kompas-nu" }, nuTekst),
+    ),
   );
 }
 
@@ -277,6 +281,7 @@ function keuzeLijst(gekozen, k) {
       volgende
         ? el("button", { class: "knop", onclick: () => voegToe(volgende.t.id) }, icoon("plus", 14, 2.2), "Geef me er eentje")
         : el("a", { class: "knop", href: "#/vakken" }, "Naar vakken"),
+      S.vakken.length ? null : elioBlok({ aanbod: true }),
     );
   }
   const gepland = geplandVandaag();

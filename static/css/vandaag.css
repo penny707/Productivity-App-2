@@ -3,9 +3,16 @@
    ========================================================= */
 
 /* ---------- Hero met dagboog ---------- */
-.kompas-hero {
-  position: relative; overflow: hidden; border-radius: var(--radius-xl); margin-bottom: 26px;
-  width: 100%; height: clamp(230px, 27vw, 320px);
+.kompas-hero { margin-bottom: 26px; }
+.kompas-hero-tekst { margin-bottom: 16px; }
+.kompas-hero-tekst h1 { font-size: 28px; letter-spacing: -.02em; }
+.kompas-hero-tekst .sub { color: var(--tekst-zacht); margin-top: 3px; }
+.kompas-datum { display: inline-block; font-weight: 600; color: var(--tekst); }
+.kompas-datum::first-letter { text-transform: uppercase; }
+
+.kompas-scene {
+  position: relative; overflow: hidden; border-radius: var(--radius-xl);
+  width: 100%; height: clamp(200px, 24vw, 290px);
   background: linear-gradient(180deg, var(--lucht-1), var(--lucht-2) 70%);
   border: 1px solid var(--rand-zacht);
   isolation: isolate;
@@ -14,12 +21,6 @@
 .boog-basis { stroke: var(--tekst-flauw); stroke-opacity: .45; stroke-width: 2; stroke-dasharray: 2 7; stroke-linecap: round; }
 .boog-voorbij { stroke: var(--tekst-zacht); stroke-opacity: .5; stroke-width: 2.5; stroke-linecap: round; }
 .boog-uur { font: 600 13px var(--font); fill: var(--tekst-flauw); }
-
-.kompas-hero-tekst { position: absolute; left: 30px; top: 24px; right: 30px; }
-.kompas-hero-tekst h1 { font-size: 28px; letter-spacing: -.02em; }
-.kompas-datum { color: var(--tekst-zacht); font-weight: 550; margin-top: 2px; }
-.kompas-datum::first-letter { text-transform: uppercase; }
-.kompas-samenvatting { color: var(--tekst-zacht); font-size: 13px; margin-top: 8px; }
 
 .kompas-nu {
   position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);

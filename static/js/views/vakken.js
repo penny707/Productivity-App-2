@@ -2,17 +2,25 @@
    Milio — views/vakken.js
    Overzicht van alle vakken (met hun berg) en de detailpagina van één vak.
    ========================================================= */
-import { el, svg, icoon, fmtDag, relatief, datumStatus, toast } from "../util.js";
-import { S, vak, voortgang, boom, takenVanVak, bewaar, verwijder, zetKlaar, zetInst } from "../store.js";
+import { el, svg, icoon, fmtDag, fmtDuur, relatief, datumStatus, toast, vandaag, maandagVan, plusDagen } from "../util.js";
+import { S, vak, voortgang, boom, takenVanVak, bewaar, verwijder, zetKlaar, zetInst, zorgVoorEvents, tijdPerVak } from "../store.js";
 import { vakModal, onderdeelModal, taakModal, verwijderTaak, bevestig, TYPES, typeKeuze } from "../modals.js";
 import { vakBerg } from "../bergen.js";
 import { planTaak } from "./kalender.js";
+import { elioBlok } from "../instellingen.js";
 
 // Onderdelen die je dichtklapte (standaard staat alles open).
 const dicht = new Set(JSON.parse(localStorage.getItem("milio-dicht") || "[]"));
 let focusNa = null; // na een her-render dit invoerveld opnieuw focussen
 const netAfgevinkt = new Map(); // taak-id -> tijdstip, voor de animatie en om even zichtbaar te blijven
 const isNet = (t, ms = 900) => Date.now() - (netAfgevinkt.get(t.id) || 0) < ms;
+
+/** Tijd per vak deze week (ma-zo), uit de kalender. */
+function dezeWeek() {
+  const ma = maandagVan(vandaag());
+  zorgVoorEvents(ma, plusDagen(ma, 7));
+  return tijdPerVak(ma, plusDagen(ma, 7));
+}
 
 /** Eerstvolgende open deadline van een vak. */
 function volgendeDeadline(vakId) {
@@ -44,15 +52,19 @@ export function renderOverzicht(c) {
       el("strong", {}, "Nog geen vakken"),
       el("span", {}, "Een vak kan ook een project of levensdomein zijn."),
       el("button", { class: "knop primair", onclick: () => vakModal() }, icoon("plus", 15, 2.2), "Eerste vak maken"),
+      elioBlok({ aanbod: true }),
     ));
     return;
   }
 
+  const tijd = dezeWeek();
   c.append(el("div", { class: "vakken-raster" }, S.vakken.map((v, i) => {
     const p = voortgang(v.id);
     const dl = volgendeDeadline(v.id);
+    const min = tijd.get(v.id)?.min || 0;
     return el("a", { class: "vak-kaart", href: `#/vak/${v.id}`, style: { "--k": v.kleur, "--i": i } },
-      el("div", { class: "vak-kaart-scene" }, svg(vakBerg(v.id, v.kleur, p.pct))),
+      el("div", { class: "vak-kaart-scene" }, svg(vakBerg(v.id, v.kleur, p.pct)),
+        min ? el("span", { class: "vak-kaart-tijd", title: "Tijd in je kalender deze week" }, icoon("klok", 11, 2.3), `${fmtDuur(min)} deze week`) : null),
       el("div", { class: "vak-kaart-body" },
         el("div", { class: "vak-kaart-kop" },
           el("span", { class: "vak-kaart-naam" }, v.naam),
@@ -78,6 +90,7 @@ export function renderVak(c, id) {
   const p = voortgang(id);
   const dl = volgendeDeadline(id);
   const verberg = S.inst.verberg_klaar === "1";
+  const tijd = dezeWeek().get(id);
 
   c.style.setProperty("--k", v.kleur);
   c.append(
@@ -112,7 +125,10 @@ export function renderVak(c, id) {
         el("div", { class: "vak-strook-types" }, Object.entries(TYPES).map(([k, label]) =>
           el("div", {}, el("strong", {}, `${p.perType[k][0]}/${p.perType[k][1]}`), el("span", { class: "type " + k }, label)))),
         dl ? el("p", { class: "klein vak-strook-dl" }, icoon("vlag", 13), "Volgende deadline: ",
-          el("strong", {}, dl.titel), ` · ${fmtDag(dl.deadline)} (${relatief(dl.deadline)})`) : null,
+          el("strong", {}, dl.titel), ` · ${relatief(dl.deadline)}`) : null,
+        el("p", { class: "klein vak-strook-tijd" }, icoon("klok", 13),
+          tijd?.min ? ["Deze week in je kalender: ", el("strong", {}, fmtDuur(tijd.min)), tijd.focus ? ` (waarvan ${fmtDuur(tijd.focus)} focus)` : ""]
+            : "Deze week nog geen tijd in je kalender voor dit vak."),
       ),
     ),
 

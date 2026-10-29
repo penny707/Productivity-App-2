@@ -157,6 +157,22 @@ export function overlapt(e, van, tot) {
 export function eventsTussen(van, tot) {
   return [...S.events.values()].filter((e) => overlapt(e, van, tot));
 }
+/** Minuten per vak in [van, tot), stukken buiten het bereik tellen niet mee. */
+export function tijdPerVak(van, tot) {
+  const a0 = naarWand(van), b0 = naarWand(tot);
+  const uit = new Map();
+  for (const e of eventsTussen(van, tot)) {
+    if (e.hele_dag || !e.vak_id) continue;
+    const [a, b] = bereik(e);
+    const min = Math.max(0, Math.min(b, b0) - Math.max(a, a0));
+    const r = uit.get(e.vak_id) || { min: 0, focus: 0 };
+    r.min += min;
+    if (e.soort === "focus") r.focus += min;
+    uit.set(e.vak_id, r);
+  }
+  return uit;
+}
+
 export function eventKleur(e) {
   return vak(e.vak_id)?.kleur || e.kleur || "#6B7A8F";
 }
