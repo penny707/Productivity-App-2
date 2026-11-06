@@ -72,7 +72,7 @@ export function instellingenModal() {
         el("span", { class: "klein" }, "Alles staat in ", el("code", {}, "data.db"),
           " in de map van Milio, op je eigen pc. Kopieer dat bestand af en toe naar OneDrive of een USB-stick als backup.")),
       el("div", { class: "inst-blok" }, el("strong", {}, "Sneltoetsen"),
-        el("span", { class: "klein" }, "Kalender: ← → vorige/volgende, T vandaag, W week, M maand, N nieuw event. Focus: spatie = pauze. Esc sluit vensters.")),
+        el("span", { class: "klein" }, "Kalender: ← → vorige/volgende, T vandaag, W week, M maand, N nieuw event. Vak: Alt + ↑/↓ verplaatst een taak. Focus: spatie = pauze. Esc sluit vensters.")),
     ],
     opslaan: async () => {
       if (Number(eind.value) <= Number(start.value)) {

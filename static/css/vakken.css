@@ -110,8 +110,25 @@ code { font-family: ui-monospace, Consolas, monospace; font-size: 12px; backgrou
 .taken { display: flex; flex-direction: column; }
 .taak {
   display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 3px 6px 3px 4px; margin: 0 -6px 0 -4px;
-  border-radius: var(--radius-s); transition: background var(--snel);
+  border-radius: var(--radius-s); transition: background var(--snel); position: relative;
 }
+
+/* Sleepgreep: verschijnt links naast de taak, in de marge van het onderdeel */
+.taak-greep {
+  position: absolute; left: -22px; top: 50%; translate: 0 -50%; width: 18px; height: 26px; padding: 0;
+  display: grid; place-items: center; border: none; border-radius: 5px; background: none;
+  color: var(--tekst-flauw); cursor: grab; touch-action: none; opacity: 0;
+  transition: opacity var(--snel), color var(--snel), background var(--snel);
+}
+.taak:hover .taak-greep, .taak-greep:focus-visible, .taak.sleept .taak-greep { opacity: 1; }
+.taak-greep:hover { color: var(--tekst); background: var(--paneel-3); }
+.taak.sleept {
+  z-index: 5; background: var(--paneel); cursor: grabbing;
+  box-shadow: var(--schaduw-2), 0 0 0 1px color-mix(in srgb, var(--k, var(--accent)) 45%, transparent);
+}
+.taak.sleept .taak-greep { cursor: grabbing; color: var(--k, var(--accent)); }
+.sleep-lijst > .taak:not(.sleept) { transition: transform 170ms cubic-bezier(.2,.7,.3,1), background var(--snel); }
+body.sleep-bezig, body.sleep-bezig * { user-select: none; cursor: grabbing !important; }
 .taak:hover { background: var(--paneel-2); }
 .taak-titel {
   flex: 1; min-width: 0; text-align: left; border: none; background: none; padding: 4px 0;

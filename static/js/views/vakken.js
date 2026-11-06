@@ -3,7 +3,7 @@
    Overzicht van alle vakken (met hun berg) en de detailpagina van één vak.
    ========================================================= */
 import { el, svg, icoon, fmtDag, fmtDuur, relatief, datumStatus, toast, vandaag, maandagVan, plusDagen } from "../util.js";
-import { S, vak, voortgang, boom, takenVanVak, bewaar, verwijder, zetKlaar, zetInst, zorgVoorEvents, tijdPerVak } from "../store.js";
+import { S, meld, vak, taak, voortgang, boom, takenVanVak, bewaar, verwijder, zetKlaar, zetInst, zetVolgorde, zorgVoorEvents, tijdPerVak } from "../store.js";
 import { vakModal, onderdeelModal, taakModal, verwijderTaak, bevestig, TYPES, typeKeuze } from "../modals.js";
 import { vakBerg } from "../bergen.js";
 import { planTaak } from "./kalender.js";
@@ -14,6 +14,13 @@ const dicht = new Set(JSON.parse(localStorage.getItem("milio-dicht") || "[]"));
 let focusNa = null; // na een her-render dit invoerveld opnieuw focussen
 const netAfgevinkt = new Map(); // taak-id -> tijdstip, voor de animatie en om even zichtbaar te blijven
 const isNet = (t, ms = 900) => Date.now() - (netAfgevinkt.get(t.id) || 0) < ms;
+const opVolgorde = (a, b) => a.volgorde - b.volgorde || a.id - b.id;
+let sleepTaak = null; // lopende versleepactie; zolang die loopt, stelt main het hertekenen uit
+
+export const bezig = () => !!sleepTaak;
+export function toets(e) {
+  if (e.key === "Escape" && sleepTaak) stopSlepen(true);
+}
 
 /** Tijd per vak deze week (ma-zo), uit de kalender. */
 function dezeWeek() {
@@ -153,10 +160,13 @@ export function renderVak(c, id) {
     c.append(el("div", { class: "onderdelen" }, wortels.map((o) => onderdeelBlok(o, id, verberg))));
   }
 
-  if (focusNa) {
-    c.querySelector(`[data-focus="${focusNa}"]`)?.focus();
-    focusNa = null;
-  }
+}
+
+/** Na het tekenen (pas dan staat alles in de pagina): de cursor terugzetten waar hij was. */
+export function naRender(c) {
+  if (!focusNa) return;
+  c.querySelector(`[data-focus="${focusNa}"]`)?.focus();
+  focusNa = null;
 }
 
 function telTaken(o) {
@@ -171,8 +181,9 @@ function onderdeelBlok(o, vakId, verberg) {
   const tel = telTaken(o);
   // Net afgevinkte taken blijven nog even staan, zodat je ziet wat er gebeurde.
   const zichtbaar = (t) => !(verberg && t.klaar && !isNet(t, 5000));
-  const taken = S.taken.filter((t) => t.onderdeel_id === o.id && zichtbaar(t));
-  const verborgen = S.taken.filter((t) => t.onderdeel_id === o.id && !zichtbaar(t)).length;
+  const alle = S.taken.filter((t) => t.onderdeel_id === o.id).sort(opVolgorde);
+  const taken = alle.filter(zichtbaar);
+  const verborgen = alle.length - taken.length;
 
   const blok = el("div", { class: "ond" + (open ? " open" : "") + (tel.totaal && tel.klaar === tel.totaal ? " af" : "") });
   const kop = el("div", {
@@ -268,7 +279,27 @@ export function datumChips(t) {
 }
 
 function taakRij(t) {
-  return el("div", { class: "taak" + (t.klaar ? " klaar" : "") + (t.klaar && isNet(t) ? " net" : ""), dataset: { taak: t.id } },
+  return el("div", {
+    class: "taak" + (t.klaar ? " klaar" : "") + (t.klaar && isNet(t) ? " net" : ""), dataset: { taak: t.id },
+    onkeydown: (e) => {
+      if (!e.altKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+      e.preventDefault();
+      schuif(t, e.key === "ArrowUp" ? -1 : 1, e.currentTarget.parentElement);
+    },
+  },
+    el("button", {
+      class: "taak-greep", title: "Sleep om de volgorde te wijzigen (of Alt + ↑/↓)", "aria-label": `Verplaats "${t.titel}"`,
+      dataset: { focus: "greep-" + t.id },
+      onpointerdown: (e) => startSlepen(e, t),
+      onpointermove: (e) => sleep(e, t),
+      onpointerup: () => stopSlepen(false),
+      onpointercancel: () => stopSlepen(true),
+      onkeydown: (e) => {
+        if (e.altKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+        e.preventDefault();
+        schuif(t, e.key === "ArrowUp" ? -1 : 1, e.currentTarget.closest(".taken"));
+      },
+    }, icoon("greep", 14, 2.8)),
     vinkKnop(t),
     el("button", { class: "taak-titel", title: "Bewerken", onclick: () => taakModal(t) }, t.titel),
     t.notitie ? el("span", { class: "taak-notitie", title: t.notitie }, icoon("sub", 12)) : null,
@@ -281,4 +312,82 @@ function taakRij(t) {
       el("button", { class: "icoon-knop klein gevaar", title: "Verwijderen", onclick: () => verwijderTaak(t) }, icoon("prullenbak", 14)),
     ),
   );
+}
+
+// =========================================================
+// VOLGORDE: taken verslepen binnen hun onderdeel
+// =========================================================
+const idsVan = (lijst) => [...lijst.children].map((r) => Number(r.dataset.taak));
+
+/**
+ * Bewaart een nieuwe volgorde van de zichtbare taken. Verborgen (afgewerkte) taken
+ * blijven op hun plek staan; de zichtbare vullen hun plaatsen in de nieuwe volgorde.
+ */
+function bewaarVolgorde(oud, nieuw, onderdeelId) {
+  const zichtbaar = new Set(oud);
+  let i = 0;
+  const alle = S.taken.filter((x) => x.onderdeel_id === onderdeelId).sort(opVolgorde);
+  zetVolgorde("taken", alle.map((x) => (zichtbaar.has(x.id) ? taak(nieuw[i++]) : x)));
+}
+
+/** Toetsenbord: één plaats omhoog of omlaag. */
+function schuif(t, richting, lijst) {
+  const ids = idsVan(lijst);
+  const i = ids.indexOf(t.id), j = i + richting;
+  if (i < 0 || j < 0 || j >= ids.length) return;
+  const nieuw = [...ids];
+  [nieuw[i], nieuw[j]] = [nieuw[j], nieuw[i]];
+  focusNa = "greep-" + t.id;
+  bewaarVolgorde(ids, nieuw, t.onderdeel_id);
+}
+
+function startSlepen(e, t) {
+  if (e.button !== 0 || sleepTaak) return;
+  const rij = e.currentTarget.closest(".taak");
+  const lijst = rij.parentElement;
+  const rijen = [...lijst.children];
+  if (rijen.length < 2) return;
+  e.preventDefault();
+  try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* geen echte aanwijzer (bv. een test) */ }
+  sleepTaak = {
+    t, rij, lijst, rijen, y0: e.clientY,
+    van: rijen.indexOf(rij), naar: rijen.indexOf(rij),
+    vakjes: rijen.map((r) => r.getBoundingClientRect()),
+  };
+  rij.classList.add("sleept");
+  lijst.classList.add("sleep-lijst");
+  document.body.classList.add("sleep-bezig");
+}
+
+function sleep(e, t) {
+  const s = sleepTaak;
+  if (!s || s.t !== t) return;
+  const eigen = s.vakjes[s.van];
+  // Binnen de lijst blijven: niet boven de eerste of onder de laatste taak.
+  const dy = Math.min(s.vakjes.at(-1).bottom - eigen.bottom, Math.max(s.vakjes[0].top - eigen.top, e.clientY - s.y0));
+  s.rij.style.transform = `translateY(${dy}px)`;
+  const midden = eigen.top + eigen.height / 2 + dy;
+  s.naar = s.vakjes.filter((v, i) => i !== s.van && v.top + v.height / 2 < midden).length;
+  // De andere taken schuiven opzij om plaats te maken.
+  s.rijen.forEach((r, i) => {
+    if (i === s.van) return;
+    const omhoog = s.van < s.naar && i > s.van && i <= s.naar;
+    const omlaag = s.naar < s.van && i >= s.naar && i < s.van;
+    r.style.transform = omhoog ? `translateY(${-eigen.height}px)` : omlaag ? `translateY(${eigen.height}px)` : "";
+  });
+}
+
+function stopSlepen(annuleer) {
+  const s = sleepTaak;
+  if (!s) return;
+  sleepTaak = null;
+  s.rijen.forEach((r) => (r.style.transform = ""));
+  s.rij.classList.remove("sleept");
+  s.lijst.classList.remove("sleep-lijst");
+  document.body.classList.remove("sleep-bezig");
+  if (annuleer || s.naar === s.van) return meld(); // ook een uitgestelde her-render inhalen
+  const oud = idsVan(s.lijst);
+  const nieuw = [...oud];
+  nieuw.splice(s.naar, 0, ...nieuw.splice(s.van, 1));
+  bewaarVolgorde(oud, nieuw, s.t.onderdeel_id);
 }

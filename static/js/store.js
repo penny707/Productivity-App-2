@@ -111,6 +111,19 @@ export async function verwijder(tabel, id) {
   }
 }
 
+/** Nieuwe volgorde voor een lijst rijen: meteen zichtbaar, daarna enkel de gewijzigde naar de server. */
+export async function zetVolgorde(tabel, rijen) {
+  const gewijzigd = rijen.filter((r, i) => r.volgorde !== i);
+  rijen.forEach((r, i) => (r.volgorde = i));
+  if (!gewijzigd.length) return;
+  meld();
+  try {
+    for (const r of gewijzigd) await api(`/${tabel}/${r.id}`, "PUT", { volgorde: r.volgorde });
+  } catch {
+    await laad(); // iets mislukte (de toast zegt wat): de server is de waarheid
+  }
+}
+
 /** Taak afvinken: meteen zichtbaar, daarna pas naar de server. */
 export async function zetKlaar(t, klaar) {
   const oud = t.klaar;

@@ -72,6 +72,7 @@ const ICONEN = {
   import: "M12 3v12M7 10l5 5 5-5M5 21h14",
   ster: "M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.6 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z",
   afsluiten: "M18.4 6.6a9 9 0 1 1-12.8 0M12 2v10",
+  greep: "M9 5h.01M15 5h.01M9 12h.01M15 12h.01M9 19h.01M15 19h.01",
 };
 const GEVULD = new Set(["spelen"]);
 

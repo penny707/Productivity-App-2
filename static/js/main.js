@@ -6,7 +6,7 @@ import { $, el, svg, icoon, vandaag, pasThemaToe, api } from "./util.js";
 import { S, laad, opWijziging, voortgang, zetInst } from "./store.js";
 import { vakModal, bevestig } from "./modals.js";
 import { instellingenModal } from "./instellingen.js";
-import { renderOverzicht, renderVak } from "./views/vakken.js";
+import { renderOverzicht, renderVak, bezig as vakBezig, toets as vakToets, naRender as vakNaRender } from "./views/vakken.js";
 import * as kalender from "./views/kalender.js";
 import * as kompas from "./views/vandaag.js";
 import * as focus from "./views/focus.js";
@@ -18,7 +18,7 @@ const VIEWS = {
   vandaag: { ...kompas, nav: "vandaag" },
   kalender: { ...kalender, nav: "kalender", vol: true },
   vakken: { render: renderOverzicht, nav: "vakken" },
-  vak: { render: renderVak, nav: "vakken" },
+  vak: { render: renderVak, nav: "vakken", bezig: vakBezig, toets: vakToets, naRender: vakNaRender },
   deadlines: { ...deadlines, nav: "deadlines" },
   focus: { ...focus, nav: "focus", vol: true },
 };
@@ -92,7 +92,7 @@ setInterval(() => {
 let resizeTimer = null;
 window.addEventListener("resize", () => {
   clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(() => { if (huidigeView?.naRender) render(); }, 120);
+  resizeTimer = setTimeout(() => { if (huidigeView?.vol) render(); }, 120); // schermvullende views meten opnieuw
 });
 
 // ---------- Zijbalk ----------
