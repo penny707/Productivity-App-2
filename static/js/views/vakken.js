@@ -19,7 +19,7 @@ let sleepTaak = null; // lopende versleepactie; zolang die loopt, stelt main het
 
 export const bezig = () => !!sleepTaak;
 export function toets(e) {
-  if (e.key === "Escape" && sleepTaak) stopSlepen(true);
+  if (e.key === "Escape" && (sleepTaak || kandidaat)) annuleerSleep();
 }
 
 /** Tijd per vak deze week (ma-zo), uit de kalender. */
@@ -281,6 +281,7 @@ export function datumChips(t) {
 function taakRij(t) {
   return el("div", {
     class: "taak" + (t.klaar ? " klaar" : "") + (t.klaar && isNet(t) ? " net" : ""), dataset: { taak: t.id },
+    onpointerdown: (e) => pakVast(e, t),
     onkeydown: (e) => {
       if (!e.altKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
       e.preventDefault();
@@ -290,10 +291,6 @@ function taakRij(t) {
     el("button", {
       class: "taak-greep", title: "Sleep om de volgorde te wijzigen (of Alt + ↑/↓)", "aria-label": `Verplaats "${t.titel}"`,
       dataset: { focus: "greep-" + t.id },
-      onpointerdown: (e) => startSlepen(e, t),
-      onpointermove: (e) => sleep(e, t),
-      onpointerup: () => stopSlepen(false),
-      onpointercancel: () => stopSlepen(true),
       onkeydown: (e) => {
         if (e.altKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
         e.preventDefault();
@@ -341,27 +338,91 @@ function schuif(t, richting, lijst) {
   bewaarVolgorde(ids, nieuw, t.onderdeel_id);
 }
 
-function startSlepen(e, t) {
-  if (e.button !== 0 || sleepTaak) return;
-  const rij = e.currentTarget.closest(".taak");
+// Slepen kan op twee manieren:
+// - de hele taakrij vastpakken (muis, touchpad): pas na een kleine beweging wordt het
+//   slepen, zodat klikken op de titel (bewerken) of de vink (afvinken) gewoon blijft werken;
+// - het greepje ⋮⋮: meteen slepen, ook met een vinger op een aanraakscherm.
+const DREMPEL = 6; // pixels beweging voor het slepen zichtbaar begint
+const KLIK_MARGE = 12; // minder bewogen en niets verplaatst? Dan was het een klik (touchpads wiebelen)
+let kandidaat = null; // ingedrukt, maar nog niet ver genoeg bewogen
+
+function pakVast(e, t) {
+  if (e.button !== 0 || sleepTaak || kandidaat) return;
+  const greep = e.target.closest(".taak-greep");
+  // De vink en de actieknoppen doen hun eigen ding; een vinger buiten het greepje scrolt.
+  if (!greep && (e.pointerType === "touch" || e.target.closest(".vink, .taak-acties"))) return;
+  const rij = e.currentTarget;
+  if (rij.parentElement.children.length < 2) return;
+  kandidaat = { t, rij, x0: e.clientX, y0: e.clientY };
+  window.addEventListener("pointermove", beweeg);
+  window.addEventListener("pointerup", laatLos);
+  window.addEventListener("pointercancel", annuleerSleep);
+  if (greep) {
+    // Enkel het greepje houdt de aanwijzer vast (nodig voor vingers). Op de rij zelf niet:
+    // dan komt een klik op de titel gewoon bij de titel aan.
+    e.preventDefault();
+    try { greep.setPointerCapture(e.pointerId); } catch { /* geen echte aanwijzer (bv. een test) */ }
+    begin();
+  }
+}
+
+function begin() {
+  const { t, rij, x0, y0 } = kandidaat;
+  if (!rij.isConnected) return annuleerSleep(); // intussen opnieuw getekend
   const lijst = rij.parentElement;
   const rijen = [...lijst.children];
-  if (rijen.length < 2) return;
-  e.preventDefault();
-  try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* geen echte aanwijzer (bv. een test) */ }
   sleepTaak = {
-    t, rij, lijst, rijen, y0: e.clientY,
+    t, rij, lijst, rijen, x0, y0, afstand: 0,
     van: rijen.indexOf(rij), naar: rijen.indexOf(rij),
     vakjes: rijen.map((r) => r.getBoundingClientRect()),
   };
+  window.getSelection()?.removeAllRanges();
   rij.classList.add("sleept");
   lijst.classList.add("sleep-lijst");
   document.body.classList.add("sleep-bezig");
 }
 
-function sleep(e, t) {
+function ruimOp() {
+  kandidaat = null;
+  window.removeEventListener("pointermove", beweeg);
+  window.removeEventListener("pointerup", laatLos);
+  window.removeEventListener("pointercancel", annuleerSleep);
+}
+
+function laatLos() {
   const s = sleepTaak;
-  if (!s || s.t !== t) return;
+  ruimOp();
+  if (!s) return; // gewoon een klik: die gaat zijn gang
+  sleepTaak = null;
+  if (s.naar === s.van && s.afstand < KLIK_MARGE) return zetTerug(s); // klik met een wiebel: laat de klik door
+  // Een echte sleep: de klik die nog volgt inslikken, en pas daarna opslaan en hertekenen
+  // (anders verdwijnt de titel onder de klik en opent hij toch de taak).
+  slikKlik();
+  setTimeout(() => rondAf(s, false), 0);
+}
+
+function annuleerSleep() {
+  const s = sleepTaak;
+  ruimOp();
+  sleepTaak = null;
+  if (s) rondAf(s, true);
+}
+
+/** Na het loslaten volgt nog een klik (bv. op de titel): die mag de taak niet openen. */
+function slikKlik() {
+  const slik = (e) => { e.stopPropagation(); e.preventDefault(); };
+  window.addEventListener("click", slik, { capture: true, once: true });
+  setTimeout(() => window.removeEventListener("click", slik, { capture: true }), 150);
+}
+
+function beweeg(e) {
+  if (!sleepTaak) {
+    if (!kandidaat || Math.hypot(e.clientX - kandidaat.x0, e.clientY - kandidaat.y0) < DREMPEL) return;
+    begin();
+    if (!sleepTaak) return;
+  }
+  const s = sleepTaak;
+  s.afstand = Math.max(s.afstand, Math.hypot(e.clientX - s.x0, e.clientY - s.y0));
   const eigen = s.vakjes[s.van];
   // Binnen de lijst blijven: niet boven de eerste of onder de laatste taak.
   const dy = Math.min(s.vakjes.at(-1).bottom - eigen.bottom, Math.max(s.vakjes[0].top - eigen.top, e.clientY - s.y0));
@@ -377,14 +438,16 @@ function sleep(e, t) {
   });
 }
 
-function stopSlepen(annuleer) {
-  const s = sleepTaak;
-  if (!s) return;
-  sleepTaak = null;
+/** Alles terug op zijn plaats zetten, zonder te hertekenen. */
+function zetTerug(s) {
   s.rijen.forEach((r) => (r.style.transform = ""));
   s.rij.classList.remove("sleept");
   s.lijst.classList.remove("sleep-lijst");
   document.body.classList.remove("sleep-bezig");
+}
+
+function rondAf(s, annuleer) {
+  zetTerug(s);
   if (annuleer || s.naar === s.van) return meld(); // ook een uitgestelde her-render inhalen
   const oud = idsVan(s.lijst);
   const nieuw = [...oud];

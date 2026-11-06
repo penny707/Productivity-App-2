@@ -111,6 +111,7 @@ code { font-family: ui-monospace, Consolas, monospace; font-size: 12px; backgrou
 .taak {
   display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 3px 6px 3px 4px; margin: 0 -6px 0 -4px;
   border-radius: var(--radius-s); transition: background var(--snel); position: relative;
+  user-select: none; cursor: grab; /* de hele rij is vast te pakken; geen tekstselectie bij slepen */
 }
 
 /* Sleepgreep: verschijnt links naast de taak, in de marge van het onderdeel */

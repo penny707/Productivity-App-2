@@ -40,7 +40,7 @@ Milio gebruikt poort **8766**, Elio 8765. Je kan ze dus naast elkaar laten draai
 - Zoals in Elio: vakken met onderdelen en sub-onderdelen, taken van het type opdracht, theorie of labo, met een harde deadline en/of een persoonlijk streefmoment.
 - Elk vak is een **berg**: je voortgang is een wandelaar die het pad naar de top beklimt. Bij 100% staat er een vlag.
 - Taken toevoegen gaat snel: typ en druk Enter, de cursor blijft staan voor de volgende.
-- Volgorde aanpassen: neem een taak vast aan het greepje (⋮⋮) links ervan en sleep ze naar een andere plek in hetzelfde onderdeel. Met het toetsenbord: Alt + ↑/↓. Verborgen afgewerkte taken houden hun plaats.
+- Volgorde aanpassen: neem een taak vast (ergens op de rij, met muis of touchpad) en sleep ze naar een andere plek in hetzelfde onderdeel. Gewoon klikken op de titel opent de taak nog steeds; slepen begint pas als je echt beweegt. Op een aanraakscherm gebruik je het greepje (⋮⋮) links van de taak, zodat je met je vinger gewoon kan scrollen. Met het toetsenbord: Alt + ↑/↓. Verborgen afgewerkte taken houden hun plaats.
 - Per vak zie je hoeveel tijd je er deze week in je kalender aan besteedde (en hoeveel daarvan focus).
 
 ### Deadlines
